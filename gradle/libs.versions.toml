@@ -9,6 +9,9 @@ classgraph = "4.8.184"
 junit = "4.13.2"
 
 [libraries]
+cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composePlugin" }
+cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composePlugin" }
+cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composePlugin" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 cps-jvm = { module = "io.github.sergio-sastre.ComposablePreviewScanner:jvm", version.ref = "composablePreviewScanner" }
 classgraph = { module = "io.github.classgraph:classgraph", version.ref = "classgraph" }
