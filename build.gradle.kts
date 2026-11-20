@@ -7,7 +7,7 @@ plugins {
 }
 
 allprojects {
-    group = "dev.vcase"
+    group = "build.raft.vcase"
     version = providers.gradleProperty("vcase.version").getOrElse("0.1.0-SNAPSHOT")
 }
 
@@ -16,6 +16,23 @@ subprojects {
     // (see docs/pilot-raft-mobile.md).
     if (path != ":samples:compose-desktop") {
         apply(plugin = "maven-publish")
+        // Release publishing (.github/workflows/release.yml): the botiverse Maven repository, the
+        // same one botiverse/mermaid-native publishes to. Set only in that workflow.
+        val mavenUrl = System.getenv("VCASE_MAVEN_URL")
+        if (!mavenUrl.isNullOrBlank()) {
+            extensions.configure<PublishingExtension> {
+                repositories {
+                    maven {
+                        name = "botiverse"
+                        url = uri(mavenUrl)
+                        credentials {
+                            username = System.getenv("VCASE_MAVEN_USER")
+                            password = System.getenv("VCASE_MAVEN_TOKEN")
+                        }
+                    }
+                }
+            }
+        }
     }
     tasks.withType<Test>().configureEach {
         testLogging {

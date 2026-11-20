@@ -1,0 +1,45 @@
+name: Publish Maven artifacts
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without leading v), e.g. 0.1.1'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # macOS: the annotations module has iOS targets, whose klibs are built only on a Mac.
+    runs-on: macos-15
+    env:
+      VCASE_MAVEN_URL: ${{ secrets.VCASE_MAVEN_URL }}
+      VCASE_MAVEN_USER: ${{ secrets.VCASE_MAVEN_USER }}
+      VCASE_MAVEN_TOKEN: ${{ secrets.VCASE_MAVEN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          [[ -n "$version" ]] || { echo "::error::version is empty"; exit 1; }
+          [[ -n "$VCASE_MAVEN_URL" ]] || { echo "::error::VCASE_MAVEN_URL secret is not set"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      # No `check` here: main is tested on Linux by ci.yml, and the sample's goldens are
+      # Linux (desktop-skiko on ubuntu) renders that a Mac would not reproduce.
+      - name: Publish
+        run: ./gradlew publishAllPublicationsToBotiverseRepository -Pvcase.version=${{ steps.version.outputs.version }}
