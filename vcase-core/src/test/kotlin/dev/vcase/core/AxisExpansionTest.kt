@@ -50,6 +50,14 @@ class AxisExpansionTest {
     }
 
     @Test
+    fun optInViewportsExpandOnlyWhenNamed() {
+        val d = DEFAULTS.copy(viewport = DEFAULTS.viewport + ManifestViewport("wide", 1280, 800, 2f, optIn = true))
+        assertEquals(listOf("light,phone", "dark,phone"), AxisExpansion.expand(case("ds.a.b"), d).map { it.name })
+        assertEquals(listOf("light,wide", "dark,wide"), AxisExpansion.expand(case("ds.a.b", mapOf("viewport" to listOf("wide"))), d).map { it.name })
+        assertEquals(listOf("\"optIn\": true"), Regex("\"optIn\": true").findAll(VCaseJson.encode(VCaseManifest(project = "p", defaults = d, cases = emptyList()))).map { it.value }.toList())
+    }
+
+    @Test
     fun axisMapListsEveryAxis() {
         val v = AxisExpansion.expand(case("ds.a.b"), DEFAULTS).first()
         assertEquals(mapOf("theme" to "light", "viewport" to "phone", "locale" to "zh-CN", "pointer" to "touch", "fontScale" to "1"), v.axisMap())

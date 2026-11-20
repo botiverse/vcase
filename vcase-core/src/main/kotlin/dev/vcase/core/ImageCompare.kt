@@ -72,7 +72,9 @@ public data class PixelRect(
     val y: Int,
     val width: Int,
     val height: Int,
-)
+) {
+    override fun toString(): String = "[$x,$y ${width}x$height]"
+}
 
 public class CompareResult(
     public val expectedWidth: Int,

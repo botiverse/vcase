@@ -53,7 +53,7 @@ public object AxisExpansion {
 
         val themes = case.axes[VCaseAxis.THEME] ?: defaults.theme
         val viewports =
-            (case.axes[VCaseAxis.VIEWPORT] ?: defaults.viewport.map { it.name }).map { name ->
+            (case.axes[VCaseAxis.VIEWPORT] ?: defaults.defaultViewports().map { it.name }).map { name ->
                 val v = defaults.viewport(name) ?: throw IllegalArgumentException("${case.id}: unknown viewport '$name'")
                 VCaseViewport(v.name, v.w, v.h, v.density)
             }

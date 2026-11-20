@@ -41,15 +41,25 @@ public data class ManifestDefaults(
     @EncodeDefault(EncodeDefault.Mode.NEVER) val fontScale: List<Float> = listOf(1f),
 ) {
     public fun viewport(name: String): ManifestViewport? = viewport.firstOrNull { it.name == name }
+
+    /** Viewports a case without a viewport override expands over. */
+    public fun defaultViewports(): List<ManifestViewport> = viewport.filterNot { it.optIn }
 }
 
-/** A named viewport: [w] x [h] dp at [density] px per dp. */
+/**
+ * A named viewport: [w] x [h] dp at [density] px per dp. Every declared viewport is part of
+ * the default expansion unless [optIn] is set: then only cases that name it use it
+ * (e.g. `wide` for screens only). [optIn] is an addition to the design-doc schema and is
+ * omitted from the JSON while false.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 public data class ManifestViewport(
     val name: String,
     val w: Int,
     val h: Int,
     val density: Float,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val optIn: Boolean = false,
 )
 
 @OptIn(ExperimentalSerializationApi::class)

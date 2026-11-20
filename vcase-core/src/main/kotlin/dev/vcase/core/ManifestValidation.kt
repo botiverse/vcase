@@ -8,7 +8,7 @@ public object ManifestValidation {
         if (manifest.project.isBlank()) out += "project is empty"
         val d = manifest.defaults
         if (d.theme.isEmpty()) out += "defaults.theme is empty"
-        if (d.viewport.isEmpty()) out += "defaults.viewport is empty"
+        if (d.defaultViewports().isEmpty()) out += "defaults.viewport has no viewport that is not optIn"
         if (d.locale.isEmpty()) out += "defaults.locale is empty"
         if (d.pointer.isEmpty()) out += "defaults.pointer is empty"
         d.viewport.groupBy { it.name }.filterValues { it.size > 1 }.keys.forEach { out += "viewport '$it' declared twice" }
