@@ -45,7 +45,7 @@ Gradle changes, both opt-in. Without the properties, the build is unchanged:
 - `compose/settings.gradle.kts`: `providers.gradleProperty("vcase.includeBuild").orNull?.let { includeBuild(it) }`
 - `compose/designsystem/build.gradle.kts`: when `vcase.includeBuild` or `vcase.version` is
   set, `desktopTest` also compiles `src/desktopVcase/kotlin` and depends on
-  `dev.vcase:vcase-compose-desktop`. It also gets the `vcase.*` system properties: goldens in
+  `build.raft.vcase:vcase-compose-desktop`. It also gets the `vcase.*` system properties: goldens in
   `compose/designsystem/goldens/`, the manifest at `compose/designsystem/vcase.manifest.json`,
   and output in `build/vcase/`.
 
@@ -81,7 +81,7 @@ passes `-Pvcase.includeBuild` is the smallest CI change. It is not part of the p
    now stand on their own.
 3. Make the dependency permanent. Until vcase is published, that means the CI checkout +
    composite build. Afterwards it is a normal `desktopTest` dependency on a released
-   `dev.vcase:vcase-compose-desktop`, and the properties go away.
+   `build.raft.vcase:vcase-compose-desktop`, and the properties go away.
 4. Move the remaining 41 gallery tests the same way, in batches. Each batch has the same gate.
 
 The following stay as they are: Roborazzi and `RaftScreenshot` for tests that are not yet

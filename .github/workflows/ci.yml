@@ -1,4 +1,3 @@
-# Runs once the repository exists on GitHub (botiverse/vcase); not yet exercised.
 name: ci
 
 on:

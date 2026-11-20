@@ -180,9 +180,9 @@ Kotlin 2.4.21 and Compose Multiplatform 1.12.2 match the first consumer.
 ### Using it before a release
 
 - Composite build: in the consumer's `settings.gradle.kts`, add `includeBuild("../vcase")`
-  and depend on `dev.vcase:vcase-compose-desktop`.
+  and depend on `build.raft.vcase:vcase-compose-desktop`.
 - Maven local: run `./gradlew publishToMavenLocal` here, then add `mavenLocal()` and
-  `dev.vcase:vcase-compose-desktop:0.1.0-SNAPSHOT` in the consumer.
+  `build.raft.vcase:vcase-compose-desktop:0.1.0-SNAPSHOT` in the consumer.
 
 ## License
 
