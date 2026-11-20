@@ -75,6 +75,7 @@ public class VCaseRunResult(
     public fun describe(): String =
         listOfNotNull(
             manifestDiff?.takeUnless { it.isEmpty }?.let { it.describe() + "\n  (run with vcase.mode=record or scan to rewrite the manifest)" },
+            manifestDiff?.movedNote(),
             summary?.describe(),
         ).joinToString("\n").ifEmpty { "vcase: manifest written (${manifest.cases.size} cases)" }
 

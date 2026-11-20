@@ -21,7 +21,7 @@ class ManifestDiffTest {
                 project = "q",
                 cases =
                     listOf(
-                        case("ds.a.b").copy(source = "Cases.kt:9"),
+                        case("ds.a.b").copy(source = "Other.kt:1"),
                         case("ds.c.d", mapOf("theme" to listOf("dark")), parity = listOf("web:ui.c.d")),
                         case("ds.x.y"),
                     ),
@@ -38,5 +38,15 @@ class ManifestDiffTest {
     @Test
     fun caseOrderDoesNotMatter() {
         assertTrue(ManifestDiff.between(base, base.copy(cases = base.cases.reversed())).isEmpty)
+    }
+
+    @Test
+    fun aMovedLineIsANoteNotAFailure() {
+        val scanned = base.copy(cases = base.cases.map { if (it.id == "ds.a.b") it.copy(source = "Cases.kt:9") else it })
+        val d = ManifestDiff.between(base, scanned)
+        assertTrue(d.isEmpty, d.describe())
+        assertEquals(listOf("ds.a.b"), d.moved)
+        assertTrue(d.movedNote()!!.contains("ds.a.b"))
+        assertEquals(null, ManifestDiff.between(base, base).movedNote())
     }
 }
