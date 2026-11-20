@@ -1,0 +1,10 @@
+.gradle/
+build/
+*/build/
+.kotlin/
+.idea/
+*.iml
+local.properties
+.DS_Store
+# Capture output of local runs (actual images, diffs, reports).
+vcase-out/
