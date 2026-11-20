@@ -1,0 +1,97 @@
+{
+  "schema": "vcase/1",
+  "project": "vcase-sample",
+  "defaults": {
+    "theme": [
+      "light",
+      "dark"
+    ],
+    "viewport": [
+      {
+        "name": "phone",
+        "w": 360,
+        "h": 640,
+        "density": 2.0
+      },
+      {
+        "name": "wide",
+        "w": 960,
+        "h": 600,
+        "density": 1.0,
+        "optIn": true
+      }
+    ],
+    "locale": [
+      "en"
+    ],
+    "pointer": [
+      "touch"
+    ]
+  },
+  "cases": [
+    {
+      "id": "ds.badge.counts",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/SampleCases.kt:30",
+      "fixture": null,
+      "axes": {},
+      "parity": [],
+      "divergences": []
+    },
+    {
+      "id": "ds.button.variants",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/SampleCases.kt:17",
+      "fixture": null,
+      "axes": {
+        "pointer": [
+          "touch",
+          "fine"
+        ]
+      },
+      "parity": [
+        "web:ui.button.variants"
+      ],
+      "divergences": []
+    },
+    {
+      "id": "ds.card.default",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/SampleCases.kt:40",
+      "fixture": null,
+      "axes": {
+        "fontScale": [
+          "1",
+          "1.3"
+        ]
+      },
+      "parity": [],
+      "divergences": []
+    },
+    {
+      "id": "screen.inbox.empty",
+      "kind": "screen",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/SampleCases.kt:60",
+      "fixture": null,
+      "axes": {
+        "viewport": [
+          "phone",
+          "wide"
+        ]
+      },
+      "parity": [
+        "web:screens.inbox.empty"
+      ],
+      "divergences": [
+        {
+          "with": "web",
+          "region": "action",
+          "kind": "platform-difference",
+          "why": "The web page puts the action in its top bar, not under the hint",
+          "decidedBy": "sample",
+          "ref": "README#divergences"
+        }
+      ]
+    }
+  ]
+}

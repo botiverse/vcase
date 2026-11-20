@@ -1,0 +1,25 @@
+[versions]
+# Kept on the same line as the first consumer (raft mobile: Kotlin 2.4.21, CMP 1.12.2) so it can
+# include this build or depend on its artifacts without version skew.
+kotlin = "2.4.21"
+composePlugin = "1.12.2"
+kotlinxSerialization = "1.13.0"
+composablePreviewScanner = "0.9.3"
+classgraph = "4.8.184"
+junit = "4.13.2"
+
+[libraries]
+cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composePlugin" }
+cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composePlugin" }
+cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composePlugin" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+cps-jvm = { module = "io.github.sergio-sastre.ComposablePreviewScanner:jvm", version.ref = "composablePreviewScanner" }
+classgraph = { module = "io.github.classgraph:classgraph", version.ref = "classgraph" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "composePlugin" }
