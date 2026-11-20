@@ -11,6 +11,11 @@ public data class ManifestDiff(
     val changed: Map<String, List<String>>,
     /** Top-level fields that differ: `schema`, `project`, `defaults`. */
     val header: List<String>,
+    /**
+     * Cases whose declaration only moved within the same file (`source` line number). Reported,
+     * never a failure: editing a comment above a case must not break CI. Rewritten on record/scan.
+     */
+    val moved: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean get() = added.isEmpty() && removed.isEmpty() && changed.isEmpty() && header.isEmpty()
 
@@ -27,6 +32,12 @@ public data class ManifestDiff(
             }.trimEnd()
         }
 
+    /** One line about [moved] cases, or null when none moved. */
+    public fun movedNote(): String? =
+        moved.takeIf { it.isNotEmpty() }?.let {
+            "note: ${it.size} case(s) moved within their file (${it.joinToString()}); record or scan rewrites the source lines"
+        }
+
     public companion object {
         public fun between(
             committed: VCaseManifest,
@@ -39,13 +50,14 @@ public data class ManifestDiff(
             val old = committed.cases.associateBy { it.id }
             val new = scanned.cases.associateBy { it.id }
             val changed = linkedMapOf<String, List<String>>()
+            val moved = mutableListOf<String>()
             for (id in (old.keys intersect new.keys).sorted()) {
                 val a = old.getValue(id)
                 val b = new.getValue(id)
                 val fields =
                     buildList {
                         if (a.kind != b.kind) add("kind")
-                        if (a.source != b.source) add("source")
+                        if (sourceFile(a.source) != sourceFile(b.source)) add("source")
                         if (a.fixture != b.fixture) add("fixture")
                         if (a.axes != b.axes) add("axes")
                         if (a.parity != b.parity) add("parity")
@@ -53,14 +65,25 @@ public data class ManifestDiff(
                         if (a.formerly != b.formerly) add("formerly")
                         if (a.needsDevice != b.needsDevice) add("needsDevice")
                     }
-                if (fields.isNotEmpty()) changed[id] = fields
+                if (fields.isNotEmpty()) {
+                    changed[id] = fields
+                } else if (a.source != b.source) {
+                    moved += id
+                }
             }
             return ManifestDiff(
                 added = (new.keys - old.keys).sorted(),
                 removed = (old.keys - new.keys).sorted(),
                 changed = changed,
                 header = header,
+                moved = moved,
             )
+        }
+
+        /** `path/File.kt:12` without its line number. */
+        internal fun sourceFile(source: String): String {
+            val line = source.substringAfterLast(':', missingDelimiterValue = "")
+            return if (line.isNotEmpty() && line.all(Char::isDigit)) source.substringBeforeLast(':') else source
         }
     }
 }
