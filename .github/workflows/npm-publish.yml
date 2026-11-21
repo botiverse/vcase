@@ -1,13 +1,13 @@
 name: Publish npm package
 
 # Publishes packages/react (@vcase/react) to npm through trusted publishing (OIDC): no npm
-# token is stored. The trusted publisher on npmjs.com must name this repository and this
-# file (npm-publish.yml). Runs on the same v* tags as the Maven release; the tag must match
-# packages/react/package.json's version.
+# token is stored. The trusted publisher on npmjs.com names this repository, this file
+# (npm-publish.yml) and the environment `npm`, which only v* tags may deploy to, so no other
+# workflow or branch can publish. Runs on the same v* tags as the Maven release; the tag must
+# match packages/react/package.json's version.
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +16,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    environment: npm
     defaults:
       run:
         working-directory: packages/react
@@ -28,7 +29,6 @@ jobs:
       - name: npm with trusted publishing
         run: npm install -g npm@^11.15.0
       - name: Tag matches package version
-        if: github.event_name == 'push'
         run: |
           version="$(node -p "require('./package.json').version")"
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
