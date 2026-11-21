@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.vcase.VCasePointer
+import dev.vcase.VCaseSizeClass
 import dev.vcase.compose.desktop.VCaseHost
 import dev.vcase.core.ManifestCase
 import dev.vcase.core.ManifestDefaults
@@ -22,8 +23,14 @@ object SampleVCaseHost : VCaseHost {
     override val defaults =
         ManifestDefaults(
             theme = listOf("light", "dark"),
-            // `wide` is opt-in: only cases that list it (screens) are captured at it.
-            viewport = listOf(ManifestViewport("phone", 360, 640, 2f), ManifestViewport("wide", 960, 600, 1f, optIn = true)),
+            // `wide` and `desktop` are opt-in: only cases that list them are captured at them.
+            // `desktop` declares the wide size class, which the host maps to the wide type scale.
+            viewport =
+                listOf(
+                    ManifestViewport("phone", 360, 640, 2f),
+                    ManifestViewport("wide", 960, 600, 1f, optIn = true),
+                    ManifestViewport("desktop", 1280, 800, 2f, optIn = true, sizeClass = VCaseSizeClass.WIDE),
+                ),
             locale = listOf("en"),
             pointer = listOf("touch"),
         )
@@ -52,7 +59,9 @@ object SampleVCaseHost : VCaseHost {
         content: @Composable () -> Unit,
     ) {
         val pointer = if (variant.axes.pointer == VCasePointer.Fine) SamplePointer.Fine else SamplePointer.Touch
-        SampleTheme(dark = variant.axes.theme == "dark", pointer = pointer) {
+        // The layout mode comes from the viewport's size class, never from the capture size.
+        val scale = if (variant.axes.viewport.sizeClass == VCaseSizeClass.WIDE) SampleScale.Wide else SampleScale.Compact
+        SampleTheme(dark = variant.axes.theme == "dark", pointer = pointer, scale = scale) {
             if (variant.case.kind == ManifestCase.KIND_SCREEN) {
                 content()
             } else {

@@ -93,6 +93,52 @@ Optional hooks:
 
 Inside a case, `LocalVCaseVariant.current` gives the axes and the fixture name.
 
+### Per-case capture settings
+
+A case can change how it is captured. Every setting is optional, defaults to the host's
+behaviour, and is written to the manifest's `capture` object only when set, so existing
+cases, manifests and goldens are unchanged.
+
+| `@VCase` parameter | default | effect |
+|---|---|---|
+| `maxWidth` | `0` (host's bound, by default the viewport width) | width bound in dp of a component capture, for content wider than the host allows (a wide gallery) |
+| `maxHeight` | `0` (host's bound, by default 4x the viewport height) | height bound in dp of a component capture |
+| `settleFrames` | `-1` (host's `settleFrames`) | frames rendered before the captured one, e.g. `2` for a popup that lays itself out a frame late |
+| `frameIntervalMs` | `-1` (host's `frameTimeNanos`) | frame `i` renders at `i * frameIntervalMs` ms; `0` renders every frame at time 0 |
+
+```kotlin
+@VCase("ds.choice-list.gallery", maxWidth = 1600)                        // wider than the 1200dp gallery bound
+@VCase("ds.tooltip.open", settleFrames = 2, frameIntervalMs = 0)          // popup settled, animations not started
+@VCase("ds.toast.shown", settleFrames = 20, frameIntervalMs = 16)         // a 300 ms fade-in has finished
+```
+
+- `maxWidth` / `maxHeight` replace the bounds of the host's `CaptureSize.WrapContent`. A
+  screen is captured at its viewport, so the manifest check rejects them on screens.
+- `settleFrames` applies to the capture pass. The measure pass of a component (which finds
+  its content size) keeps the host's count.
+- `settleFrames = N, frameIntervalMs = 0` matches a hand-written
+  `repeat(N) { scene.render() }; scene.render()` on an `ImageComposeScene`: state, effects
+  and popups settle, while time-driven animations stay at their start. Give a positive
+  interval to let animations run.
+
+### Wide layouts and the mouse
+
+The pointer axis (`touch`, `fine`) is how a case asks for mouse sizing:
+`pointer = ["fine"]`, or `["touch", "fine"]` for both. A wide layout (a desktop type scale,
+larger panes) is a viewport with a size class:
+
+```kotlin
+ManifestViewport("wide", 1200, 2400, 2f, optIn = true, sizeClass = VCaseSizeClass.WIDE)
+
+@VCase("ds.desktop-scale.gallery", viewport = ["wide"], pointer = ["fine", "touch"])
+```
+
+The host reads `variant.axes.viewport.sizeClass` and `variant.axes.pointer` in `Wrap` and
+pins the theme's layout and input modes with them. It should not derive them from the
+capture size: a component is captured at its content size, which says nothing about the
+window it was designed for. `sizeClass` is free text (`VCaseSizeClass.COMPACT` and `WIDE` are
+the conventional names). It is not an axis of its own, so it never appears in file names.
+
 ### 3. Add one test class
 
 ```kotlin
@@ -164,10 +210,10 @@ export default function Variants() { return <ButtonGallery />; }
 
 | module | what |
 |---|---|
-| `vcase-annotations` | `@VCase`, `@VCaseDivergence`, `VCaseKind`, axis model (`VCaseAxis`, `VCasePointer`, `VCaseViewport`, `VCaseAxisValues`). KMP, no dependencies. |
-| `vcase-core` | JVM. Manifest model + JSON (`VCaseManifest`, `VCaseJson`), `ManifestValidation`, `VCaseIds`, `AxisExpansion` / `VCaseVariant`, `ManifestDiff`, `ImageCompare` / `PixelTolerance` / `RegionTolerance`, `CaptureMeta`, `GoldenStore` / `GoldenRun` / `RunSummary`, `HtmlReport`. |
+| `vcase-annotations` | `@VCase`, `@VCaseDivergence`, `VCaseKind`, axis model (`VCaseAxis`, `VCasePointer`, `VCaseViewport`, `VCaseSizeClass`, `VCaseAxisValues`). KMP, no dependencies. |
+| `vcase-core` | JVM. Manifest model + JSON (`VCaseManifest`, `ManifestCapture`, `VCaseJson`), `ManifestValidation`, `VCaseIds`, `AxisExpansion` / `VCaseVariant`, `ManifestDiff`, `ImageCompare` / `PixelTolerance` / `RegionTolerance`, `CaptureMeta`, `GoldenStore` / `GoldenRun` / `RunSummary`, `HtmlReport`. |
 | `vcase-compose-desktop` | JVM, Compose Desktop. `VCaseScanner` (ComposablePreviewScanner `JvmAnnotationScanner` + ClassGraph), `VCaseHost`, `CaptureSize`, `LocalVCaseVariant`, `DesktopRenderer` (ImageComposeScene, renderer `desktop-skiko`), `runVCases`, `VCaseDesktopConfig`, `VCaseDesktopTest`. |
-| `samples/compose-desktop` | Four cases, a host, the one test class, committed goldens. |
+| `samples/compose-desktop` | Seven cases (including a wide capture, a settled popup and a wide size class with both pointers), a host, the one test class, committed goldens. |
 
 ## Building
 

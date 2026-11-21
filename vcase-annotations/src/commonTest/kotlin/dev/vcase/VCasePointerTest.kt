@@ -17,3 +17,11 @@ class VCasePointerTest {
         assertEquals(listOf("theme", "viewport"), VCaseAxis.ORDER.take(2))
     }
 }
+
+class VCaseViewportTest {
+    @Test
+    fun sizeClassIsOptional() {
+        assertEquals(null, VCaseViewport("phone", 390, 844, 3f).sizeClass)
+        assertEquals(VCaseSizeClass.WIDE, VCaseViewport("desktop", 1280, 800, 2f, VCaseSizeClass.WIDE).sizeClass)
+    }
+}

@@ -35,6 +35,19 @@ package dev.vcase
  * @property divergences decided differences from other platforms.
  * @property needsDevice the case can only be rendered on a device or emulator
  *   (gestures, keyboard, system sheets); JVM adapters skip it.
+ * @property maxWidth bound in dp of a [VCaseKind.Component] capture's width, for content wider
+ *   than the host's bound (a wide gallery); `0` = the host's bound (by default the viewport
+ *   width). Content reaching the bound is cut there and gets a warning.
+ * @property maxHeight bound in dp of a [VCaseKind.Component] capture's height; `0` = the
+ *   host's bound (by default 4x the viewport height).
+ * @property settleFrames frames rendered before the captured one, e.g. `2` for a popup or
+ *   tooltip that lays itself out a frame late; `-1` = the host's `settleFrames`. Applies to the
+ *   capture pass; a component's size is measured as the host measures it.
+ * @property frameIntervalMs fixed time step between rendered frames: frame `i` renders at
+ *   `i * frameIntervalMs` ms. `0` renders every frame at time 0, so state settles but
+ *   animations never start (what `ImageComposeScene.render()` with no time does); a positive
+ *   step lets time-driven animations run, e.g. `settleFrames = 20, frameIntervalMs = 16` for
+ *   a 300 ms fade. `-1` = the host's `frameTimeNanos`.
  */
 @MustBeDocumented
 @Target(AnnotationTarget.FUNCTION)
@@ -52,6 +65,10 @@ public annotation class VCase(
     val formerly: Array<String> = [],
     val divergences: Array<VCaseDivergence> = [],
     val needsDevice: Boolean = false,
+    val maxWidth: Int = 0,
+    val maxHeight: Int = 0,
+    val settleFrames: Int = -1,
+    val frameIntervalMs: Int = -1,
 )
 
 /** What a case captures; decides the capture size. */

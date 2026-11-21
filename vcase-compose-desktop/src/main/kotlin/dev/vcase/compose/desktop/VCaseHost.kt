@@ -24,19 +24,28 @@ public interface VCaseHost {
     /** Renderer id, also the golden subdirectory. Change it when the rendering stack changes. */
     public val renderer: String get() = RENDERER
 
-    /** Frames rendered before the captured one (popups lay themselves out a frame late). */
+    /**
+     * Frames rendered before the captured one (popups lay themselves out a frame late). A case's
+     * `@VCase(settleFrames = ...)` replaces it for that case's capture pass; the measure pass of
+     * a wrap-content capture always renders this many.
+     */
     public val settleFrames: Int get() = 0
 
     /**
      * Frame time of frame [index] (0 = first). Every frame time is fixed, so animations and
      * `withFrameNanos` clocks are deterministic; the default steps 16 ms per frame from 0.
+     * A case's `@VCase(frameIntervalMs = ...)` replaces it for that case.
      */
     public fun frameTimeNanos(index: Int): Long = index * 16_000_000L
 
     /** Hash of the fonts the host loads, written to capture metadata; null if not tracked. */
     public val fontsHash: String? get() = null
 
-    /** How big the capture is; default: components at content size, screens at the viewport. */
+    /**
+     * How big the capture is; default: components at content size, screens at the viewport.
+     * A case's `@VCase(maxWidth = ..., maxHeight = ...)` replaces the [CaptureSize.WrapContent]
+     * bounds returned here.
+     */
     public fun captureSize(variant: VCaseVariant): CaptureSize =
         if (variant.case.kind == ManifestCase.KIND_SCREEN) CaptureSize.Viewport else CaptureSize.WrapContent()
 
@@ -46,7 +55,11 @@ public interface VCaseHost {
     /** Called after rendering a variant (also after a failure). */
     public fun afterCapture(variant: VCaseVariant) {}
 
-    /** Wraps every case: theme for the axis values, background, freeze settings. */
+    /**
+     * Wraps every case: theme for the axis values, background, freeze settings. Pin the
+     * layout mode from `variant.axes.viewport.sizeClass` (e.g. a wide type scale) and the input
+     * mode from `variant.axes.pointer`, not from the capture size.
+     */
     @Composable
     public fun Wrap(
         variant: VCaseVariant,

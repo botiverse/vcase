@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import dev.vcase.core.AxisExpansion
 import dev.vcase.core.ImageCompare
+import dev.vcase.core.ManifestCapture
+import dev.vcase.core.ManifestCase
 import dev.vcase.core.ManifestDefaults
 import dev.vcase.core.ManifestViewport
 import dev.vcase.core.VCaseJson
@@ -25,7 +28,7 @@ object TestHost : VCaseHost {
     override val defaults =
         ManifestDefaults(
             theme = listOf("light", "dark"),
-            viewport = listOf(ManifestViewport("tiny", 20, 12, 2f)),
+            viewport = listOf(ManifestViewport("tiny", 20, 12, 2f), ManifestViewport("tiny-wide", 20, 12, 2f, optIn = true, sizeClass = "wide")),
             locale = listOf("en"),
             pointer = listOf("touch"),
         )
@@ -45,7 +48,21 @@ class RunVCasesTest {
     @Test
     fun scanFindsCustomAnnotationIncludingPrivateFunctions() {
         val cases = VCaseScanner.scan(pkg, "src/test/kotlin")
-        assertEquals(listOf("test.device.only", "test.screen.full", "test.square.plain", "test.square.pointer"), cases.map { it.entry.id })
+        assertEquals(
+            listOf(
+                "test.bar.bounded",
+                "test.bar.wide",
+                "test.device.only",
+                "test.frames.clock",
+                "test.frames.first",
+                "test.frames.still",
+                "test.screen.full",
+                "test.square.plain",
+                "test.square.pointer",
+                "test.square.size-class",
+            ),
+            cases.map { it.entry.id },
+        )
         val plain = cases.first { it.entry.id == "test.square.plain" }.entry
         assertTrue(plain.source.startsWith("src/test/kotlin/dev/vcase/compose/desktop/cases/TestCases.kt:"), plain.source)
         assertEquals(listOf("web:test.square.plain"), plain.parity)
@@ -100,6 +117,73 @@ class RunVCasesTest {
         assertEquals(1, ImageCompare.compare(ImageIO.read(failure.expected!!), ImageIO.read(failure.actual!!)).mismatchedPixels)
         assertNotNull(failure.diff)
         assertTrue(File(root, "out/report/index.html").readText().contains("test.square.plain@dark,tiny"))
+    }
+
+    @Test
+    fun scanReadsCaptureSettings() {
+        val cases = VCaseScanner.scan(pkg).associate { it.entry.id to it.entry }
+        assertEquals(null, cases.getValue("test.square.plain").capture)
+        assertEquals(null, cases.getValue("test.frames.first").capture)
+        assertEquals(ManifestCapture(maxWidth = 40), cases.getValue("test.bar.wide").capture)
+        assertEquals(ManifestCapture(settleFrames = 3, frameIntervalMs = 0), cases.getValue("test.frames.still").capture)
+        assertEquals(ManifestCapture(settleFrames = 3, frameIntervalMs = 100), cases.getValue("test.frames.clock").capture)
+    }
+
+    @Test
+    fun framePlan() {
+        val defaults = TestHost.defaults
+        fun variant(capture: ManifestCapture?) = AxisExpansion.expand(ManifestCase(id = "ds.a.b", source = "x", capture = capture), defaults).first()
+        // Nothing set: the host's frames, as before.
+        val plain = DesktopRenderer.Frames.of(TestHost, variant(null))
+        assertEquals(listOf(0L), plain.times(plain.captureSettle))
+        val still = DesktopRenderer.Frames.of(TestHost, variant(ManifestCapture(settleFrames = 2, frameIntervalMs = 0)))
+        assertEquals(0, still.measureSettle)
+        assertEquals(listOf(0L, 0L, 0L), still.times(still.captureSettle))
+        val stepped = DesktopRenderer.Frames.of(TestHost, variant(ManifestCapture(settleFrames = 2)))
+        assertEquals(listOf(0L, 16_000_000L, 32_000_000L), stepped.times(stepped.captureSettle))
+        // The case's bounds replace the host's; unset ones keep it.
+        assertEquals(CaptureSize.WrapContent(1600, null), DesktopRenderer.Frames.captureSize(TestHost, variant(ManifestCapture(maxWidth = 1600))))
+        assertEquals(CaptureSize.WrapContent(), DesktopRenderer.Frames.captureSize(TestHost, variant(null)))
+    }
+
+    @Test
+    fun captureSettingsRender() {
+        val root = kotlin.io.path.createTempDirectory("vcase-desktop").toFile()
+        val r =
+            runVCases(
+                TestHost,
+                VCaseDesktopConfig(
+                    packages = pkg,
+                    mode = VCaseMode.Record,
+                    goldensDir = File(root, "g"),
+                    outputDir = File(root, "o"),
+                    manifestFile = null,
+                    filter = listOf("test.bar.*", "test.frames.*", "test.square.size-class"),
+                ),
+            )
+        assertTrue(r.ok, r.describe())
+        val dir = File(root, "g/desktop-skiko")
+        fun png(stem: String) = ImageIO.read(File(dir, "$stem.png"))
+
+        // maxWidth: the whole 30dp bar; without it the capture stops at the 20dp viewport.
+        assertEquals(60 to 4, png("test.bar.wide@light,tiny").let { it.width to it.height })
+        assertEquals(40, png("test.bar.bounded@light,tiny").width)
+        val warned = r.summary!!.results.first { it.variant.fileStem == "test.bar.bounded@light,tiny" }.meta!!.warnings
+        assertTrue(warned.any { "max width" in it }, warned.toString())
+
+        val red = 0xFFFF0000.toInt()
+        val blue = 0xFF0000FF.toInt()
+        fun probe(stem: String) = png(stem).let { it.getRGB(1, 1) to it.getRGB(5, 1) }
+        // One frame at time 0: neither square has seen frames.
+        assertEquals(red to red, probe("test.frames.first@light,tiny"))
+        // Three settle frames at time 0: frames arrived, the clock stayed at 0.
+        assertEquals(blue to red, probe("test.frames.still@light,tiny"))
+        // Three settle frames 100 ms apart: the clock moved.
+        assertEquals(blue to blue, probe("test.frames.clock@light,tiny"))
+
+        // The size class reaches the case; the pointer axis names the file.
+        assertEquals(6, png("test.square.size-class@light,tiny,fine").width)
+        assertEquals(12, png("test.square.size-class@light,tiny-wide,fine").width)
     }
 
     @Test

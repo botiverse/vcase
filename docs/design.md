@@ -113,6 +113,11 @@ Phase 1 additions to `vcase/1` (all optional, omitted from the JSON while unset)
 - `cases[].formerly`: previous ids.
 - `cases[].needsDevice`: the case can only be rendered on a device or emulator.
 - `divergences[].expires`: an ISO date.
+- `viewport[].sizeClass`: the layout mode the host pins for the viewport (`compact`, `wide`).
+  It is not an axis and is not part of file names.
+- `cases[].capture`: per-case capture settings, each optional: `maxWidth` / `maxHeight`
+  (dp bounds of a component capture), `settleFrames` (frames before the captured one) and
+  `frameIntervalMs` (frame `i` at `i * frameIntervalMs` ms; 0 = every frame at time 0).
 
 ### Id rules **[built]**
 
@@ -165,7 +170,9 @@ fun ChannelMembersCase(data: MembersFixture) {
   `ScreenshotTimeContext`) and pinned fonts. The project injects its own theme and these
   freeze settings through a `VCaseHost` interface. The framework does not know about Raft.
   **[built]** Frames render at fixed times (`frameTimeNanos`), and density and font
-  scale come from the axes.
+  scale come from the axes. A case can override the frame plan (`settleFrames`,
+  `frameIntervalMs`) and the content-size bounds (`maxWidth`, `maxHeight`); the host maps
+  the viewport's `sizeClass` and the pointer axis to the theme's layout and input modes.
 - The data parameter's type follows from the fixture name. The adapter deserializes the
   generated JSON into it (kotlinx.serialization). **[planned]** In phase 1 cases have no
   parameters. A case with a parameter is reported as an error. The fixture name is

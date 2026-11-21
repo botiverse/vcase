@@ -64,6 +64,7 @@ public data class ManifestDiff(
                         if (a.divergences != b.divergences) add("divergences")
                         if (a.formerly != b.formerly) add("formerly")
                         if (a.needsDevice != b.needsDevice) add("needsDevice")
+                        if (a.capture != b.capture) add("capture")
                     }
                 if (fields.isNotEmpty()) {
                     changed[id] = fields
