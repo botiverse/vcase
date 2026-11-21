@@ -335,9 +335,23 @@ network idle, `readySelector`, fonts and images, then `settleFrames` animation f
 transitions, CSS animations and the caret are stopped. A component is captured at its root
 element's bounds (cut at `maxWidth`, default the viewport width, and `maxHeight`, default 4x
 the viewport height, with a warning); `maxWidth` also widens the window so a wide gallery can
-lay out. A screen is captured at the viewport. With `frameIntervalMs`, the page runs on
-Playwright's paused fake clock and each settle frame advances it by that many ms, so a
-JavaScript animation is captured at a known instant (`0` keeps it at its start).
+lay out. A screen is captured at the viewport.
+
+With `frameIntervalMs`, the page runs on Playwright's fake clock, paused from before
+navigation, and the capture instant does not depend on how fast the page loads:
+
+- Through load, network idle, `readySelector`, fonts and images, `performance.now()` is `0`
+  and `Date.now()` is `clock` (default `2026-01-01T00:00:00.000Z`); no timer, interval or
+  animation frame runs. Module code, the first render and mount effects all see time 0.
+- Settle frame `i` (1-based) runs the clock forward by exactly `frameIntervalMs`, firing the
+  timers due on the way. `requestAnimationFrame` callbacks fire at every multiple of 16 ms of
+  `performance.now()`, with that value as their timestamp.
+- The capture is at `performance.now() = settleFrames * frameIntervalMs` (`0` keeps an
+  animation at its start). For example, `settleFrames: 10, frameIntervalMs: 16` mounts a
+  component at 0, runs its frames at 16, 32, ... 160 and captures at 160.
+
+The renderer reads the page's clock before the first settle frame and at the capture; any
+other value makes the variant an error rather than a slightly different image.
 
 A page error, an HTTP error for the page, or a request to an origin that is not allowed (and
 that no route answers) makes the variant an error: no image, and verify fails.

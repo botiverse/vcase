@@ -66,6 +66,16 @@ jobs:
         id: verify
         working-directory: samples/react
         run: npx vcase-react verify
+      - name: Fake-clock determinism (frameIntervalMs cases, 5 more runs, zero tolerance)
+        # A frameIntervalMs case must capture the same instant however fast the page loads;
+        # once flaked by a few ms. Each run fails on any pixel off the golden.
+        id: determinism
+        working-directory: samples/react
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "run $i"
+            npx vcase-react verify --filter 'ui.progress.*'
+          done
       - name: Parity report against the Compose sample (report-only)
         if: always() && steps.verify.outcome != 'skipped'
         working-directory: samples/react
