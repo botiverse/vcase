@@ -44,7 +44,8 @@ async function main() {
   const Case = mod[variant.exportName] as ComponentType | undefined;
   if (typeof Case !== "function") return markError(`'${variant.key}' has no export '${variant.exportName}'`);
   // Load both weights before the first paint, so text never renders in a fallback font.
-  await Promise.all([document.fonts.load("400 16px 'Space Grotesk'"), document.fonts.load("700 16px 'Space Grotesk'")]);
+  const faces = await Promise.all([document.fonts.load("400 16px 'Space Grotesk'"), document.fonts.load("700 16px 'Space Grotesk'")]);
+  if (faces.some((f) => f.length === 0)) return markError("Space Grotesk did not load");
   createRoot(container).render(<Host Case={Case} screen={mod.meta?.kind === "screen"} />);
 }
 
