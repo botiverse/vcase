@@ -1,0 +1,126 @@
+{
+  "schema": "vcase/1",
+  "project": "vcase-react-sample",
+  "defaults": {
+    "theme": [
+      "light",
+      "dark"
+    ],
+    "viewport": [
+      {
+        "name": "phone",
+        "w": 360,
+        "h": 640,
+        "density": 2.0
+      },
+      {
+        "name": "wide",
+        "w": 960,
+        "h": 600,
+        "density": 1.0,
+        "optIn": true
+      },
+      {
+        "name": "desktop",
+        "w": 1280,
+        "h": 800,
+        "density": 2.0,
+        "optIn": true,
+        "sizeClass": "wide"
+      }
+    ],
+    "locale": [
+      "en"
+    ],
+    "pointer": [
+      "touch"
+    ]
+  },
+  "cases": [
+    {
+      "id": "screens.inbox.empty",
+      "kind": "screen",
+      "source": "samples/react/src/cases/inbox.cases.tsx:4",
+      "fixture": null,
+      "axes": {
+        "viewport": [
+          "phone",
+          "wide"
+        ]
+      },
+      "parity": [
+        "mobile:screen.inbox.empty"
+      ],
+      "divergences": [
+        {
+          "with": "mobile",
+          "region": "action",
+          "kind": "platform-difference",
+          "why": "The app puts the action under the hint; the web page will move it to its top bar",
+          "decidedBy": "sample",
+          "ref": "README#react"
+        }
+      ]
+    },
+    {
+      "id": "ui.badge.counts",
+      "kind": "component",
+      "source": "samples/react/src/cases/badge.cases.tsx:5",
+      "fixture": null,
+      "axes": {
+        "theme": [
+          "dark"
+        ]
+      },
+      "parity": [],
+      "divergences": []
+    },
+    {
+      "id": "ui.button.variants",
+      "kind": "component",
+      "source": "samples/react/src/cases/button.cases.tsx:5",
+      "fixture": null,
+      "axes": {
+        "pointer": [
+          "touch",
+          "fine"
+        ]
+      },
+      "parity": [
+        "mobile:ds.button.variants"
+      ],
+      "divergences": []
+    },
+    {
+      "id": "ui.card.default",
+      "kind": "component",
+      "source": "samples/react/src/cases/card.cases.tsx:5",
+      "fixture": null,
+      "axes": {
+        "fontScale": [
+          "1",
+          "1.3"
+        ]
+      },
+      "parity": [],
+      "divergences": []
+    },
+    {
+      "id": "ui.progress.filling",
+      "kind": "component",
+      "source": "samples/react/src/cases/progress.cases.tsx:6",
+      "fixture": null,
+      "axes": {
+        "theme": [
+          "light"
+        ]
+      },
+      "parity": [],
+      "divergences": [],
+      "capture": {
+        "settleFrames": 10,
+        "frameIntervalMs": 16
+      }
+    }
+  ]
+}
