@@ -281,10 +281,41 @@ export default defineConfig({
 | `clock` | `2026-01-01T00:00:00Z` | the page's `Date` (timers keep running); `null` for the real clock |
 | `timezoneId`, `reducedMotion` | `UTC`, `reduce` | context emulation |
 | `allowedOrigins` | none | origins besides `baseURL` the page may request; any other request fails the variant |
+| `routes` | none | requests answered locally, see [Local routes](#local-routes) |
 | `tolerance` | exact | `{ channelDelta?, maxDiffPixels? }`; leave it exact for same-renderer regression |
 | `fontFiles` | none | hashed into `fontsHash` of every capture's metadata |
 | `manifest`, `goldens`, `out`, `renderer` | `vcase.manifest.json`, `goldens`, `build/vcase`, `web-chromium` | paths and golden directory name |
 | `parity` | none | other platforms' golden directories, by platform name |
+
+### Local routes
+
+`routes` answers requests from local files or inline bodies instead of the network. It is checked
+before anything else, the first matching route wins, and requests no route matches are allowed or
+blocked as before. Use it for anything the page loads from a CDN that must not change a golden
+when the CDN changes, such as web fonts:
+
+```js
+routes: [
+  // the stylesheet the page imports, rewritten to point at the files below
+  { url: "https://fonts.googleapis.com/css2*", file: "vcase/fonts.css" },
+  { url: "https://fonts.example.test/Inter-Variable.woff2", file: "../design/fonts/Inter-Variable.woff2" },
+  { url: /^https:\/\/api\.example\.test\/flags$/, body: "{}", contentType: "application/json" },
+],
+```
+
+| field | meaning |
+|---|---|
+| `url` | the full request URL; a string is a glob where `*` matches anything (`/` and `?` too) and the rest is literal; a `RegExp` (in `.mjs` / `.js` configs) is tested against the full URL |
+| `file` | file answered, relative to the config file |
+| `body` | inline body; exactly one of `file` and `body` |
+| `contentType` | default from the extension of `file`, else of the URL path (`.css`, `.woff2`, `.woff`, `.ttf`, `.otf`, `.json`, `.svg`, `.png`, `.jpg`, `.webp`, `.js`, `.html`, `.txt`), else `application/octet-stream` (`text/plain` for `body`) |
+| `status` | default `200` |
+
+Every routed response has `access-control-allow-origin: *`, so cross-origin font and stylesheet
+loads work. Routes are checked when the config is loaded: a missing file, both or neither of
+`file` and `body`, or a bad `status` is an error. Add the font files to `fontFiles` too, so
+`fontsHash` changes with them. [`samples/react`](samples/react) loads its fonts from a CDN
+host that does not exist and serves them this way.
 
 ### 4. Run
 
@@ -308,9 +339,10 @@ lay out. A screen is captured at the viewport. With `frameIntervalMs`, the page 
 Playwright's paused fake clock and each settle frame advances it by that many ms, so a
 JavaScript animation is captured at a known instant (`0` keeps it at its start).
 
-A page error, an HTTP error for the page, or a request to an origin that is not allowed makes
-the variant an error: no image, and verify fails. `data-vcase-region="name"` elements are
-written to the capture metadata as regions in image pixels.
+A page error, an HTTP error for the page, or a request to an origin that is not allowed (and
+that no route answers) makes the variant an error: no image, and verify fails.
+`data-vcase-region="name"` elements are written to the capture metadata as regions in image
+pixels.
 
 Output, the same as the Kotlin adapter:
 
@@ -336,8 +368,8 @@ the reason for the change.
 
 - Fixtures (phase 2): cases take no data yet. `fixture` is written to the manifest and passed
   to the URL as `{fixture}`, but nothing generates fixture files.
-- Network replay: requests outside `baseURL` and `allowedOrigins` fail the case, but they are
-  not yet replayed from recorded fixtures.
+- Network replay: requests outside `baseURL` and `allowedOrigins` that no route answers fail
+  the case, but they are not yet replayed from recorded fixtures.
 - Parity is a side-by-side page with a whole-image hint. Per-region comparison and divergence
   masks are not applied yet.
 - `vcase accept --from-ci <run>` does not exist; download the artifact by hand.

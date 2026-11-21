@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Tolerance } from "./compare.js";
+import { routeProblems, type RouteConfig } from "./routes.js";
 import type { ManifestDefaults } from "./manifest.js";
 import type { SourceSpec } from "./scan.js";
 
@@ -59,8 +60,13 @@ export interface VCaseReactConfig {
   timezoneId?: string;
   /** `prefers-reduced-motion`. Default `reduce`. */
   reducedMotion?: "reduce" | "no-preference";
-  /** Origins requests may go to besides `baseURL`'s. Anything else fails the variant. */
+  /** Origins requests may go to besides `baseURL`'s. Anything else fails the variant (unless a route answers it). */
   allowedOrigins?: string[];
+  /**
+   * Requests answered locally, checked before anything else (the first match wins), e.g. a font
+   * CDN's stylesheet and font files served from the repository's own copies.
+   */
+  routes?: RouteConfig[];
   /** Pixel comparison; default zero tolerance. */
   tolerance?: Tolerance;
   /** Font files hashed into capture metadata `fontsHash`. */
@@ -98,6 +104,8 @@ export async function loadConfig(cwd: string, explicit?: string): Promise<Loaded
     config = mod.default;
   }
   for (const k of ["project", "defaults", "sources", "baseURL"] as const) if (config[k] === undefined) throw new Error(`${file}: \`${k}\` is required`);
+  const problems = routeProblems(config.routes, path.dirname(file));
+  if (problems.length > 0) throw new Error(problems.map((p) => `${file}: ${p}`).join("\n"));
   return { config, dir: path.dirname(file), file };
 }
 

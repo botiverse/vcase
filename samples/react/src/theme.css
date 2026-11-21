@@ -1,13 +1,19 @@
 /* The sample design system: the palettes and sizes of samples/compose-desktop's SampleTheme. */
+/* The fonts as an app would load them from a font CDN. That host does not exist: vcase answers it
+   from the same files (`routes` in vcase.config.mjs); opened by hand, the second url() loads. */
 @font-face {
   font-family: "Space Grotesk";
   font-weight: 400;
-  src: url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Regular.ttf") format("truetype");
+  src:
+    url("https://fonts.vcase.invalid/SpaceGrotesk-Regular.ttf") format("truetype"),
+    url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Regular.ttf") format("truetype");
 }
 @font-face {
   font-family: "Space Grotesk";
   font-weight: 700;
-  src: url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Bold.ttf") format("truetype");
+  src:
+    url("https://fonts.vcase.invalid/SpaceGrotesk-Bold.ttf") format("truetype"),
+    url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Bold.ttf") format("truetype");
 }
 
 :root {
