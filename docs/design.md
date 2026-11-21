@@ -227,8 +227,9 @@ Usage is in the [README](../README.md#react). How it is built (`packages/react`,
 - **Capture size.** A component is its `data-vcase-root` element's bounds, bounded by
   `maxWidth` (default the viewport width; it also widens the window) and `maxHeight` (default
   4x the viewport height), with a warning when cut. A screen is the viewport.
-- **Network.** Requests outside the page's origin and `allowedOrigins` fail the variant; they
-  never silently 404. **[planned]** Replaying them from recorded fixtures.
+- **Network.** `routes` answer requests from local files or inline bodies (a font CDN served
+  from the repository's font files). Other requests outside the page's origin and
+  `allowedOrigins` fail the variant; they never silently 404. **[planned]** Replaying them from recorded fixtures.
 - **Goldens** live in `goldens/web-chromium/` and are recorded in CI only (the `react` job
   records and uploads them when verify fails), because Chromium's pixels depend on its build,
   fonts and OS.

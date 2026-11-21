@@ -5,6 +5,7 @@ import type { Browser, Page } from "playwright";
 import { axisMap, type VCaseVariant } from "./axes.js";
 import { DEFAULT_URL, type VCaseReactConfig } from "./config.js";
 import type { CaptureMeta, CaptureOutcome } from "./golden.js";
+import { compileRoutes, findRoute, type CompiledRoute } from "./routes.js";
 import type { ScannedCase } from "./scan.js";
 
 /** CSS added to every page: no caret, no transitions, no scrollbars. Playwright also stops CSS animations at capture. */
@@ -59,8 +60,9 @@ export async function createRenderer(cfg: VCaseReactConfig, dir: string): Promis
   const { chromium } = await import("playwright");
   const browser: Browser = await chromium.launch({ args: CHROMIUM_ARGS });
   const hash = fontsHash(dir, cfg.fontFiles);
+  const routes = compileRoutes(cfg.routes, dir);
   return {
-    render: (c, v) => renderVariant(browser, cfg, hash, c, v),
+    render: (c, v) => renderVariant(browser, cfg, hash, routes, c, v),
     close: () => browser.close(),
   };
 }
@@ -72,7 +74,7 @@ interface Box {
   h: number;
 }
 
-async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: string | null, c: ScannedCase, v: VCaseVariant): Promise<CaptureOutcome> {
+async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: string | null, routes: CompiledRoute[], c: ScannedCase, v: VCaseVariant): Promise<CaptureOutcome> {
   const started = Date.now();
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -110,7 +112,10 @@ async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: stri
     const url = variantUrl(cfg, c, v);
     const allowed = new Set([new URL(cfg.baseURL).origin, ...(cfg.allowedOrigins ?? []).map((o) => new URL(o).origin)]);
     await page.route("**/*", (route) => {
-      const u = new URL(route.request().url());
+      const href = route.request().url();
+      const local = findRoute(routes, href);
+      if (local) return route.fulfill({ status: local.status, headers: local.headers(href), body: local.body });
+      const u = new URL(href);
       if (u.protocol === "data:" || u.protocol === "blob:" || allowed.has(u.origin)) return route.continue();
       errors.push(`unmocked ${route.request().method()} ${u.href}`);
       return route.abort("blockedbyclient");

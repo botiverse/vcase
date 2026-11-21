@@ -8,5 +8,6 @@ export * from "./report.js";
 export * from "./parity.js";
 export * from "./config.js";
 export * from "./render.js";
+export * from "./routes.js";
 export * from "./server.js";
 export * from "./run.js";
