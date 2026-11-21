@@ -375,4 +375,4 @@ Kotlin 2.4.21 and Compose Multiplatform 1.12.2 match the first consumer.
 
 ## License
 
-License TBD by owners. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
