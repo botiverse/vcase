@@ -1,6 +1,6 @@
 {
   "name": "@vcase/react",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "vcase adapter for React: scan *.cases.tsx / stories / example files into a vcase manifest, capture them with Playwright, verify against goldens.",
   "license": "MIT",
   "repository": {
