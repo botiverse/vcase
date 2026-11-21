@@ -59,8 +59,12 @@ export interface VCaseMeta {
   /** Animation frames waited before the capture (default: the config's `settleFrames`). */
   settleFrames?: number;
   /**
-   * With a value, the page runs on a fake clock and each settle frame advances it by this many
-   * ms; `0` keeps time-driven animations at their start.
+   * With a value, the page runs on a paused fake clock: it loads and first renders at
+   * `performance.now() === 0` (`Date.now()` = the config's `clock`), however long loading takes,
+   * and each settle frame advances it by exactly this many ms, so the capture is at
+   * `settleFrames * frameIntervalMs`. `requestAnimationFrame` fires at every multiple of 16 ms
+   * of `performance.now()`, with that value as its timestamp. `0` keeps time-driven animations
+   * at their start.
    */
   frameIntervalMs?: number;
 }

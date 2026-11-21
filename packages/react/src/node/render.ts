@@ -127,11 +127,11 @@ async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: stri
 
     const interval = cap.frameIntervalMs ?? null;
     const clock = cfg.clock === undefined ? DEFAULT_CLOCK : cfg.clock;
-    if (interval != null) {
-      // Fake timers, paused: time moves only in settle(), so the capture is at a known instant.
-      const start = new Date(clock ?? DEFAULT_CLOCK).getTime();
-      await page.clock.install({ time: start });
-      await page.clock.pauseAt(start + 1000);
+    const frames = cap.settleFrames ?? cfg.settleFrames ?? 2;
+    const plan = interval != null ? frameClock(clock, frames, interval) : null;
+    if (plan) {
+      // One pauseAt, no install: see frameClock() for why.
+      await page.clock.pauseAt(plan.wallStart);
     } else if (clock) {
       await page.clock.setFixedTime(clock);
     }
@@ -151,7 +151,9 @@ async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: stri
       await Promise.all([...document.images].map((img) => (img.complete ? Promise.resolve() : img.decode().catch(() => undefined))));
     });
     await page.waitForLoadState("networkidle");
-    await settle(page, cap.settleFrames ?? cfg.settleFrames ?? 2, interval);
+    if (plan) errors.push(...clockProblems(await readClock(page), plan.wallStart, 0, "before the first frame"));
+    await settle(page, frames, interval);
+    if (plan) errors.push(...clockProblems(await readClock(page), plan.wallStart + plan.capture, plan.capture, "at capture"));
     if (errors.length > 0) return { kind: "error", message: errors.join("; "), meta: meta() };
 
     const shot = { animations: "disabled", caret: "hide", scale: "device", timeout } as const;
@@ -192,6 +194,42 @@ async function renderVariant(browser: Browser, cfg: VCaseReactConfig, hash: stri
   } finally {
     await context.close();
   }
+}
+
+/**
+ * The fake-clock instants of a case with a frame interval. The page's clock is paused before
+ * navigation and stays paused through load, readiness, fonts and images, so everything up to
+ * the first settle frame (module code, React's first render and effects) sees
+ * `performance.now() === 0` and `Date.now() === wallStart`, however long loading takes in real
+ * time. Each settle frame then runs the clock forward by exactly `interval` ms; Playwright's
+ * fake `requestAnimationFrame` fires at every multiple of 16 ms of `performance.now()` with that
+ * value as its timestamp. The capture is at `performance.now() === capture`.
+ *
+ * Only `page.clock.pauseAt(wallStart)` is called, never `install` + `pauseAt`: Playwright
+ * replays clock calls into each new document with the real wall time at which they were made,
+ * and the clock runs between `install` and `pauseAt`, so the page's `performance.now()` would
+ * start at the real milliseconds between the two calls (0 on one run, 4 on another).
+ */
+export function frameClock(clock: string | null | undefined, frames: number, interval: number): { wallStart: number; capture: number } {
+  const wallStart = new Date(clock ?? DEFAULT_CLOCK).getTime();
+  if (!Number.isFinite(wallStart)) throw new Error(`invalid clock ${JSON.stringify(clock)}`);
+  return { wallStart, capture: frames * interval };
+}
+
+/** What the page's (fake) clock reads. */
+export interface ClockReading {
+  wall: number;
+  perf: number;
+}
+
+async function readClock(page: Page): Promise<ClockReading> {
+  return page.evaluate(() => ({ wall: Date.now(), perf: performance.now() }));
+}
+
+/** Empty when the page's clock reads exactly the expected instant; otherwise why not. */
+export function clockProblems(read: ClockReading, wall: number, perf: number, when: string): string[] {
+  if (read.wall === wall && read.perf === perf) return [];
+  return [`fake clock ${when}: performance.now() = ${read.perf}, Date.now() = ${read.wall}; expected ${perf} and ${wall}`];
 }
 
 /**
