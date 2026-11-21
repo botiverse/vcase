@@ -5,6 +5,7 @@ import dev.vcase.VCase
 import dev.vcase.VCaseAxis
 import dev.vcase.VCaseKind
 import dev.vcase.core.AxisExpansion
+import dev.vcase.core.ManifestCapture
 import dev.vcase.core.ManifestCase
 import dev.vcase.core.ManifestDefaults
 import dev.vcase.core.ManifestDivergence
@@ -101,8 +102,18 @@ public object VCaseScanner {
                 },
             formerly = a.formerly.toList(),
             needsDevice = a.needsDevice,
+            capture = captureOf(a),
         )
     }
+
+    /** The annotation's capture settings; its "use the host's" sentinels (0, -1) become null. */
+    internal fun captureOf(a: VCase): ManifestCapture? =
+        ManifestCapture(
+            maxWidth = a.maxWidth.takeIf { it != 0 },
+            maxHeight = a.maxHeight.takeIf { it != 0 },
+            settleFrames = a.settleFrames.takeIf { it != -1 },
+            frameIntervalMs = a.frameIntervalMs.takeIf { it != -1 },
+        ).takeUnless { it.isEmpty }
 
     private fun annotationOf(p: ComposablePreview<JvmAnnotationInfo>): VCase {
         val cls = Class.forName(p.declaringClass, false, Thread.currentThread().contextClassLoader ?: VCase::class.java.classLoader)

@@ -51,6 +51,10 @@ public data class ManifestDefaults(
  * the default expansion unless [optIn] is set: then only cases that name it use it
  * (e.g. `wide` for screens only). [optIn] is an addition to the design-doc schema and is
  * omitted from the JSON while false.
+ *
+ * [sizeClass] is the layout mode the host pins for this viewport (`compact`, `wide`, ...;
+ * see `VCaseSizeClass`), handed to the host as `variant.axes.viewport.sizeClass`. Omitted
+ * from the JSON while null.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -60,6 +64,7 @@ public data class ManifestViewport(
     val h: Int,
     val density: Float,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val optIn: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val sizeClass: String? = null,
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -77,11 +82,36 @@ public data class ManifestCase(
     val divergences: List<ManifestDivergence> = emptyList(),
     @EncodeDefault(EncodeDefault.Mode.NEVER) val formerly: List<String> = emptyList(),
     @EncodeDefault(EncodeDefault.Mode.NEVER) val needsDevice: Boolean = false,
+    /** Per-case capture settings; omitted from the JSON while the case uses the host's. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val capture: ManifestCapture? = null,
 ) {
     public companion object {
         public const val KIND_COMPONENT: String = "component"
         public const val KIND_SCREEN: String = "screen"
     }
+}
+
+/**
+ * How one case is captured, where it differs from the host. Every field is optional (null =
+ * the host's value) and omitted from the JSON while null; a case that sets none has no
+ * `capture` object at all.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+public data class ManifestCapture(
+    /** Bound in dp of a component capture's width (content wider than the host's bound). */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val maxWidth: Int? = null,
+    /** Bound in dp of a component capture's height. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val maxHeight: Int? = null,
+    /** Frames rendered before the captured one. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val settleFrames: Int? = null,
+    /** Frame `i` renders at `i * frameIntervalMs` ms; 0 = every frame at time 0. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val frameIntervalMs: Int? = null,
+) {
+    public val isEmpty: Boolean get() = maxWidth == null && maxHeight == null && settleFrames == null && frameIntervalMs == null
+
+    /** Frame time of frame [index] in nanoseconds, or null when the host decides. */
+    public fun frameTimeNanos(index: Int): Long? = frameIntervalMs?.let { index.toLong() * it * 1_000_000L }
 }
 
 @OptIn(ExperimentalSerializationApi::class)

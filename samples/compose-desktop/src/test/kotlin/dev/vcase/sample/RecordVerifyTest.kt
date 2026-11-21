@@ -29,7 +29,9 @@ class RecordVerifyTest {
         assertTrue(recorded.ok, recorded.describe())
         val stems = recorded.summary!!.results.map { it.variant.fileStem }.toSet()
         // 4 button (2 themes x 2 pointers) + 2 badge + 4 card (2 themes x 2 font scales) + 4 screen (2 x 2 viewports)
-        assertEquals(14, stems.size, stems.toString())
+        // + 2 wide toolbar + 2 tooltip + 4 desktop button (2 themes x 2 pointers)
+        assertEquals(22, stems.size, stems.toString())
+        assertTrue("ds.button.desktop@dark,desktop,fine" in stems)
         assertTrue("ds.button.variants@dark,phone,fine" in stems)
         assertTrue("ds.card.default@light,phone,fs1.3" in stems)
         assertTrue("screen.inbox.empty@dark,wide" in stems)
@@ -72,5 +74,32 @@ class RecordVerifyTest {
         assertEquals(720 to 1280, phone.width to phone.height)
         val badge = ImageIO.read(File(dir, "ds.badge.counts@light,phone.png"))
         assertTrue(badge.width < 400 && badge.height < 200, "${badge.width}x${badge.height}")
+    }
+
+    @Test
+    fun captureSettings() {
+        val root = kotlin.io.path.createTempDirectory("vcase-sample").toFile()
+        val r =
+            runVCases(
+                SampleVCaseHost,
+                VCaseDesktopConfig(
+                    packages = listOf("dev.vcase.sample"),
+                    mode = VCaseMode.Record,
+                    goldensDir = File(root, "g"),
+                    outputDir = File(root, "o"),
+                    manifestFile = null,
+                    filter = listOf("ds.toolbar.wide", "ds.button.desktop"),
+                ),
+            )
+        assertTrue(r.ok, r.describe())
+        val dir = File(root, "g/desktop-skiko")
+        // maxWidth = 720: 600dp of toolbar + 2 x 16dp of canvas, past the 360dp phone bound.
+        val toolbar = ImageIO.read(File(dir, "ds.toolbar.wide@light,phone.png"))
+        assertEquals(1264, toolbar.width)
+        assertTrue(r.summary!!.results.all { it.meta!!.warnings.isEmpty() }, r.summary!!.results.map { it.meta!!.warnings }.toString())
+        // With a mouse the controls are shorter than with a finger.
+        val desktop = ImageIO.read(File(dir, "ds.button.desktop@light,desktop,fine.png"))
+        val desktopTouch = ImageIO.read(File(dir, "ds.button.desktop@light,desktop,touch.png"))
+        assertTrue(desktopTouch.height > desktop.height, "touch ${desktopTouch.height} vs fine ${desktop.height}")
     }
 }

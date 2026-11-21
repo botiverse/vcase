@@ -11,7 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.sp
 
-/** A tiny design system: two palettes, one font, a touch / fine pointer switch. */
+/** A tiny design system: two palettes, one font, a touch / fine pointer switch, a compact / wide scale. */
 @Immutable
 data class SampleColors(
     val canvas: Color,
@@ -50,8 +50,12 @@ val DarkColors =
 
 enum class SamplePointer { Touch, Fine }
 
+/** The layout mode an app picks from its window width: wide windows get a larger type scale. */
+enum class SampleScale { Compact, Wide }
+
 val LocalSampleColors = staticCompositionLocalOf { LightColors }
 val LocalSamplePointer = staticCompositionLocalOf { SamplePointer.Touch }
+val LocalSampleScale = staticCompositionLocalOf { SampleScale.Compact }
 
 object SampleFonts {
     private fun bytes(name: String): ByteArray =
@@ -72,20 +76,32 @@ object SampleFonts {
 object SampleTheme {
     val colors: SampleColors @Composable get() = LocalSampleColors.current
     val pointer: SamplePointer @Composable get() = LocalSamplePointer.current
+    val scale: SampleScale @Composable get() = LocalSampleScale.current
 
-    val body: TextStyle @Composable get() = TextStyle(fontFamily = SampleFonts.family, fontSize = 14.sp, color = colors.text)
-    val title: TextStyle @Composable get() = TextStyle(fontFamily = SampleFonts.family, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.text)
+    val body: TextStyle
+        @Composable get() =
+            TextStyle(fontFamily = SampleFonts.family, fontSize = if (scale == SampleScale.Wide) 16.sp else 14.sp, color = colors.text)
+    val title: TextStyle
+        @Composable get() =
+            TextStyle(
+                fontFamily = SampleFonts.family,
+                fontSize = if (scale == SampleScale.Wide) 22.sp else 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.text,
+            )
 }
 
 @Composable
 fun SampleTheme(
     dark: Boolean,
     pointer: SamplePointer = SamplePointer.Touch,
+    scale: SampleScale = SampleScale.Compact,
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(
         LocalSampleColors provides if (dark) DarkColors else LightColors,
         LocalSamplePointer provides pointer,
+        LocalSampleScale provides scale,
         content = content,
     )
 }

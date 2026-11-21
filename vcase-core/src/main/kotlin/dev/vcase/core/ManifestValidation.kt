@@ -13,6 +13,7 @@ public object ManifestValidation {
         if (d.pointer.isEmpty()) out += "defaults.pointer is empty"
         d.viewport.groupBy { it.name }.filterValues { it.size > 1 }.keys.forEach { out += "viewport '$it' declared twice" }
         d.viewport.filter { it.w <= 0 || it.h <= 0 || it.density <= 0f }.forEach { out += "viewport '${it.name}' must have positive w, h, density" }
+        d.viewport.filter { it.sizeClass != null && it.sizeClass.isBlank() }.forEach { out += "viewport '${it.name}': sizeClass is blank (omit it instead)" }
 
         manifest.cases.groupBy { it.id }.filterValues { it.size > 1 }.forEach { (id, list) ->
             out += "id '$id' declared ${list.size} times: ${list.joinToString { it.source }}"
@@ -34,10 +35,26 @@ public object ManifestValidation {
                 }
                 if (dv.why.isBlank()) out += "${case.id}: divergence with '${dv.with}' needs a why"
             }
+            case.capture?.let { out += captureProblems(case, it) }
             runCatching { AxisExpansion.expand(case, d) }.onFailure { out += it.message ?: it.toString() }
         }
         return out
     }
+
+    private fun captureProblems(
+        case: ManifestCase,
+        c: ManifestCapture,
+    ): List<String> =
+        buildList {
+            if (c.isEmpty) add("${case.id}: capture is empty (omit it instead)")
+            c.maxWidth?.let { if (it <= 0) add("${case.id}: capture.maxWidth must be positive, is $it") }
+            c.maxHeight?.let { if (it <= 0) add("${case.id}: capture.maxHeight must be positive, is $it") }
+            c.settleFrames?.let { if (it < 0) add("${case.id}: capture.settleFrames must be 0 or more, is $it") }
+            c.frameIntervalMs?.let { if (it < 0) add("${case.id}: capture.frameIntervalMs must be 0 or more, is $it") }
+            if (case.kind == ManifestCase.KIND_SCREEN && (c.maxWidth != null || c.maxHeight != null)) {
+                add("${case.id}: maxWidth / maxHeight bound a component's content size; a screen is captured at its viewport")
+            }
+        }
 
     public fun requireValid(manifest: VCaseManifest) {
         val problems = problems(manifest)

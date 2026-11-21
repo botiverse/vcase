@@ -19,6 +19,14 @@
         "h": 600,
         "density": 1.0,
         "optIn": true
+      },
+      {
+        "name": "desktop",
+        "w": 1280,
+        "h": 800,
+        "density": 2.0,
+        "optIn": true,
+        "sizeClass": "wide"
       }
     ],
     "locale": [
@@ -35,6 +43,23 @@
       "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/SampleCases.kt:30",
       "fixture": null,
       "axes": {},
+      "parity": [],
+      "divergences": []
+    },
+    {
+      "id": "ds.button.desktop",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/CaptureCases.kt:65",
+      "fixture": null,
+      "axes": {
+        "viewport": [
+          "desktop"
+        ],
+        "pointer": [
+          "fine",
+          "touch"
+        ]
+      },
       "parity": [],
       "divergences": []
     },
@@ -67,6 +92,31 @@
       },
       "parity": [],
       "divergences": []
+    },
+    {
+      "id": "ds.toolbar.wide",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/CaptureCases.kt:28",
+      "fixture": null,
+      "axes": {},
+      "parity": [],
+      "divergences": [],
+      "capture": {
+        "maxWidth": 720
+      }
+    },
+    {
+      "id": "ds.tooltip.open",
+      "kind": "component",
+      "source": "samples/compose-desktop/src/main/kotlin/dev/vcase/sample/CaptureCases.kt:41",
+      "fixture": null,
+      "axes": {},
+      "parity": [],
+      "divergences": [],
+      "capture": {
+        "settleFrames": 2,
+        "frameIntervalMs": 0
+      }
     },
     {
       "id": "screen.inbox.empty",

@@ -103,7 +103,35 @@ tasks, and the legacy golden directory.
   harness does. Making `locale` a real axis changes the type styles, so it needs a re-record.
 - **Tests with interaction** (hover, pointer density, pull-down, toast timing) need more
   host hooks: settle frames per case, `LocalRaftSpinnerStillStep`, input injection. These
-  tests come last.
+  tests come last. Per-case settle frames, wide captures and the wide / mouse modes now
+  exist (see below); input injection does not.
+
+## Capture settings the remaining galleries need
+
+After batch 2, the remaining `RaftScreenshot` tests use three `capture` parameters that the
+first host could not express. Each maps to a vcase setting:
+
+| `RaftScreenshot.capture(...)` | `@VCase` | legacy tests |
+|---|---|---|
+| `maxWidthDp = 1340 / 1400 / 1600` | `maxWidth = 1340 / 1400 / 1600` | ThemeDecor (`top_actions`), ChoicePicker, ChoiceList, Combobox (`sheet`) |
+| `settleFrames = N` | `settleFrames = N, frameIntervalMs = 0` | AppRail, DisplayComponent, FrameInsets, InteractiveComponent, MessageReaction, MobileNavServer, PointerDensity, PreviewCard, SideActionColumn, SidebarSectionMouse, ThemeDecor, ToastHost, TopBar |
+| `scale = RaftScale.Wide` | `viewport = ["wide"]` | DesktopScale, FitToolbar (`members_fine`), PointerDensity |
+| `pointerInput = RaftPointerInput.Fine` | `pointer = ["fine"]` (`["fine", "touch"]` for both) | DesktopScale, FitToolbar (`members_fine`), PointerDensity, SidebarSectionMouse |
+
+Pixel parity notes:
+
+- `RaftScreenshot` renders every frame with `scene.render()`, that is at time 0, and measures
+  the content with one frame. `settleFrames = N, frameIntervalMs = 0` does the same: the
+  capture pass renders N + 1 frames at time 0, and the measure pass keeps the host's count
+  (0 for `RaftVCaseHost`, one frame). Without `frameIntervalMs = 0` the frames would step
+  16 ms and animations would move.
+- The host needs a `wide` viewport with the same bounds as `compact`:
+  `ManifestViewport("wide", 1200, 2400, 2f, optIn = true, sizeClass = VCaseSizeClass.WIDE)`,
+  and `Wrap` picks `RaftScale.Wide` from `variant.axes.viewport.sizeClass` (Compact
+  otherwise). Its golden names end in `,wide,fine` / `,wide,touch`.
+- `maxWidth` replaces the host's `CaptureSize.WrapContent(1200, 2400)` width only; the
+  2400 dp height bound stays.
+
 - **Source line numbers in the manifest.** Editing above a case changes its `source` line,
   and the manifest check then asks for a `vcase.mode=scan`. This is by design (the manifest
   must equal the scan), but it is a real cost in review noise.
