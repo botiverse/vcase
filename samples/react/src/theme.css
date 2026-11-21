@@ -1,0 +1,165 @@
+/* The sample design system: the palettes and sizes of samples/compose-desktop's SampleTheme. */
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 400;
+  src: url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 700;
+  src: url("../../compose-desktop/src/main/resources/fonts/SpaceGrotesk-Bold.ttf") format("truetype");
+}
+
+:root {
+  --canvas: #f6f6f4;
+  --surface: #ffffff;
+  --border: #ddddd8;
+  --text: #1b1b19;
+  --text-muted: #6b6b66;
+  --accent: #2f5bea;
+  --on-accent: #ffffff;
+  --danger: #d23c2a;
+  /* Text sizes are rem so the fontScale axis (root font size) scales text only, like sp. */
+  --body: 0.875rem;
+  --title: 1.125rem;
+  --control: 44px;
+}
+:root[data-theme="dark"] {
+  --canvas: #151514;
+  --surface: #222220;
+  --border: #3a3a37;
+  --text: #f1f1ee;
+  --text-muted: #a3a39e;
+  --accent: #7c9bff;
+  --on-accent: #0b1330;
+  --danger: #ff7a66;
+}
+:root[data-pointer="fine"] {
+  --control: 32px;
+}
+:root[data-size-class="wide"] {
+  --body: 1rem;
+  --title: 1.375rem;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: var(--body);
+}
+
+/* A component sits on the canvas with 16px around it, like the Compose host's gallery box. */
+.case-component {
+  display: inline-block;
+  padding: 16px;
+  background: var(--canvas);
+}
+.case-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control);
+  min-width: 64px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+}
+.button[data-kind="secondary"] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.button[data-kind="danger"] {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.button:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.badge {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--on-accent);
+}
+
+.card {
+  box-sizing: border-box;
+  width: 280px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.title {
+  font-size: var(--title);
+  font-weight: 700;
+}
+.muted {
+  color: var(--text-muted);
+}
+
+.empty {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--canvas);
+}
+.empty-art {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.progress {
+  width: 240px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+}

@@ -2,10 +2,11 @@
 
 Visual cases for UI code. You declare each UI state once in source code, give it an id,
 and vcase renders it, compares it with a committed golden image, and writes a report.
-It works with any Kotlin Compose project. A React adapter is planned.
+It works with any Kotlin Compose project and any React project (`@vcase/react`), and both
+write the same manifest.
 
-Status: phase 1. The Kotlin core and the Compose Desktop adapter work and are tested. Nothing
-is published yet; see [Using it before a release](#using-it-before-a-release).
+Status: phase 1. The Kotlin core, the Compose Desktop adapter and the React adapter work and are
+tested. Nothing is published yet; see [Using it before a release](#using-it-before-a-release).
 
 - Design: [docs/design.md](docs/design.md)
 - First adoption, the Raft mobile design system: [docs/pilot-raft-mobile.md](docs/pilot-raft-mobile.md)
@@ -188,23 +189,159 @@ File names are `<id>@<axis values>`. Theme and viewport are always part of the n
 pointer and font scale (`fs1.3`) appear only when the case overrides that axis, or when the
 project default has more than one value for it.
 
-## React (planned)
+## React
 
-The React adapter is not built yet. It will be shaped like this
-([design](docs/design.md#react)):
+`@vcase/react` (in [`packages/react`](packages/react)) scans React case files into the same
+`vcase.manifest.json` as the Kotlin side, captures every variant with Playwright Chromium, and
+records or verifies goldens with the same rules: zero tolerance, one golden directory per
+renderer (`goldens/web-chromium/`), file names `<id>@<axes>.png`.
+[`samples/react`](samples/react) is a working project. See also the [design](docs/design.md#react-built).
+
+### 1. Write cases
 
 ```tsx
-// button.cases.tsx
-export const meta = vcase({ id: "ui.button.variants", parity: ["mobile:ds.button.variants"] });
-export default function Variants() { return <ButtonGallery />; }
+// src/cases/button.cases.tsx
+import { vcase } from "@vcase/react";
+
+export const meta = vcase({ id: "ui.button.variants", pointer: ["touch", "fine"], parity: ["mobile:ds.button.variants"] });
+export default function ButtonVariants() {
+  return <ButtonGallery />;
+}
 ```
 
-- The format is compatible with Storybook CSF (default export + named `meta`), so existing
-  stories can be scanned as they are.
-- A Playwright script opens a Vite host page that renders only the case, waits for fonts
-  and images, and captures the element.
-- Network requests are replayed from fixtures. An unknown request fails the case.
-- It writes the same output as every adapter: `<id>@<axes>.png` + `<id>@<axes>.json`.
+`vcase({...})` takes the fields of Kotlin's `@VCase` under the same names: `id`, `kind`
+(`"component"` or `"screen"`), `fixture`, `parity`, the axes `theme`, `viewport`, `locale`,
+`pointer`, `fontScale`, plus `formerly`, `divergences`, `needsDevice`, and the capture settings
+`maxWidth`, `maxHeight`, `settleFrames`, `frameIntervalMs`. The scanner reads `meta` with the
+TypeScript parser and never runs the file, so every value must be a literal. A computed value
+or an unknown field is a scan error with `file:line`.
+
+Three kinds of source files can be scanned:
+
+| source | what is a case | case key (`{key}`) |
+|---|---|---|
+| `*.cases.tsx` | the file: `export const meta = vcase(...)` + `export default` component | path under `base`, without `suffix` |
+| any example glob, e.g. raft-design's `*.composition.tsx` | a file with `export const meta = vcase(...)`; files without it are skipped | same; the host page decides which export to render |
+| Storybook CSF `*.stories.tsx` | every named story; the id comes from `title` + export name (`UI/Button` + `PrimaryLarge` gives `ui.button.primary-large`) unless `parameters: { vcase: vcase({...}) }` sets one | the file key, plus `{export}` and `{storyId}` (`ui-button--primary-large`) |
+
+### 2. Serve a host page
+
+The renderer opens one URL per variant. The host page renders only that case, applies the
+axes, marks the case's root element with `data-vcase-root`, and calls `markReady()` once the
+case has mounted. With the default URL template, `readVariant()` gives it the axes:
+
+```tsx
+import { markReady, readVariant, ROOT_ATTRIBUTE } from "@vcase/react";
+
+const modules = import.meta.glob("./cases/*.cases.tsx");
+const v = readVariant()!; // key, exportName, id, theme, viewport, locale, pointer, fontScale, sizeClass, fixture
+document.documentElement.dataset.theme = v.theme;
+const mod = await modules[`./cases/${v.key}.cases.tsx`]!();
+// render <div data-vcase-root>{<mod.default />}</div>, then markReady() in an effect
+```
+
+[`samples/react/src/main.tsx`](samples/react/src/main.tsx) is a complete host. It is
+the counterpart of the Kotlin `VCaseHost`: the theme for the axis values, the canvas and padding
+around a component, the pointer and size class, the font scale (root font size).
+
+An existing page that renders one example by URL works too: set `url` to its template, and
+`rootSelector` / `readySelector` to what it renders.
+
+### 3. Configure
+
+```js
+// vcase.config.mjs
+import { defineConfig } from "@vcase/react/node";
+
+export default defineConfig({
+  project: "my-web",
+  defaults: {
+    theme: ["light", "dark"],
+    viewport: [{ name: "phone", w: 360, h: 640, density: 2 }, { name: "wide", w: 1280, h: 800, density: 2, optIn: true }],
+    locale: ["en"],
+    pointer: ["touch"],
+  },
+  sources: [{ glob: "src/cases/*.cases.tsx", base: "src/cases", suffix: ".cases.tsx" }],
+  baseURL: "http://127.0.0.1:4173",
+  server: { command: "npx vite build && npx vite preview --port 4173 --strictPort" },
+  parity: { mobile: "../mobile/goldens/desktop-skiko" },
+});
+```
+
+| option | default | meaning |
+|---|---|---|
+| `project`, `defaults` | required | written to the manifest; the same shape as the Kotlin host's `ManifestDefaults` |
+| `sources` | required | `{ glob, base?, suffix?, format?: "cases" \| "stories", allStories? }` |
+| `baseURL` | required | where the host page is served |
+| `url` | `/?case={key}&export={export}&id={id}&theme={theme}&…` | URL template; placeholders `{key}` `{export}` `{storyId}` `{id}` `{theme}` `{viewport}` `{w}` `{h}` `{density}` `{sizeClass}` `{locale}` `{pointer}` `{fontScale}` `{fixture}`, URL-encoded |
+| `server` | none | `{ command, cwd?, timeoutMs?, reuseExisting? }`, started and stopped around the run |
+| `rootSelector` | `[data-vcase-root]` | what a component case captures |
+| `readySelector` | `html[data-vcase-ready]` | waited for before capturing; `null` to skip |
+| `settleFrames` | `2` | animation frames before every capture (a case's `settleFrames` wins) |
+| `clock` | `2026-01-01T00:00:00Z` | the page's `Date` (timers keep running); `null` for the real clock |
+| `timezoneId`, `reducedMotion` | `UTC`, `reduce` | context emulation |
+| `allowedOrigins` | none | origins besides `baseURL` the page may request; any other request fails the variant |
+| `tolerance` | exact | `{ channelDelta?, maxDiffPixels? }`; leave it exact for same-renderer regression |
+| `fontFiles` | none | hashed into `fontsHash` of every capture's metadata |
+| `manifest`, `goldens`, `out`, `renderer` | `vcase.manifest.json`, `goldens`, `build/vcase`, `web-chromium` | paths and golden directory name |
+| `parity` | none | other platforms' golden directories, by platform name |
+
+### 4. Run
+
+| command | effect |
+|---|---|
+| `vcase-react scan` | write the manifest (no browser) |
+| `vcase-react check` | fail when the committed manifest differs from the scan (no browser) |
+| `vcase-react verify` | manifest check, capture every variant, compare with the goldens; exit 1 on any difference, missing golden, error or orphan |
+| `vcase-react record` | rewrite the manifest, write new and changed goldens, delete orphans |
+| `vcase-react parity [--with mobile=dir]` | side-by-side page of each `parity` pair; never fails |
+| `--filter 'ui.button.*,screens.*'` | only these ids (orphan detection is off) |
+
+How a variant is captured: a fresh browser context at the viewport's size and density, the
+theme as `prefers-color-scheme` (for `light` / `dark`), the locale, touch emulation for
+`pointer: touch`, reduced motion, a fixed `Date`. The renderer waits for the load event,
+network idle, `readySelector`, fonts and images, then `settleFrames` animation frames;
+transitions, CSS animations and the caret are stopped. A component is captured at its root
+element's bounds (cut at `maxWidth`, default the viewport width, and `maxHeight`, default 4x
+the viewport height, with a warning); `maxWidth` also widens the window so a wide gallery can
+lay out. A screen is captured at the viewport. With `frameIntervalMs`, the page runs on
+Playwright's paused fake clock and each settle frame advances it by that many ms, so a
+JavaScript animation is captured at a known instant (`0` keeps it at its start).
+
+A page error, an HTTP error for the page, or a request to an origin that is not allowed makes
+the variant an error: no image, and verify fails. `data-vcase-region="name"` elements are
+written to the capture metadata as regions in image pixels.
+
+Output, the same as the Kotlin adapter:
+
+```
+goldens/web-chromium/<id>@<axes>.png                    committed golden
+vcase.manifest.json                                     committed manifest
+build/vcase/web-chromium/<id>@<axes>.png / .json        actual + metadata
+build/vcase/web-chromium/<id>@<axes>.diff.png / .expected.png
+build/vcase/report/index.html, summary.json             matrix + expected / actual / diff
+build/vcase/parity/index.html, parity.json              parity pairs (report-only)
+```
+
+### Goldens come from CI
+
+Browser pixels depend on the Chromium build, its fonts and the OS, so goldens are recorded
+where they are verified: the `react` job of [ci.yml](.github/workflows/ci.yml) (Ubuntu 24.04,
+the Playwright version in `packages/react/package-lock.json`). When `verify` fails there, the
+job runs `record` and uploads the `vcase-react-goldens` artifact. Look at the report
+(`vcase-react-report`), then download the goldens into `samples/react` and commit them with
+the reason for the change.
+
+### Not done yet
+
+- Fixtures (phase 2): cases take no data yet. `fixture` is written to the manifest and passed
+  to the URL as `{fixture}`, but nothing generates fixture files.
+- Network replay: requests outside `baseURL` and `allowedOrigins` fail the case, but they are
+  not yet replayed from recorded fixtures.
+- Parity is a side-by-side page with a whole-image hint. Per-region comparison and divergence
+  masks are not applied yet.
+- `vcase accept --from-ci <run>` does not exist; download the artifact by hand.
+- The package is not published to npm. Depend on it with `"@vcase/react": "file:../vcase/packages/react"` after `npm ci && npm run build` there.
 
 ## Modules
 
@@ -213,12 +350,18 @@ export default function Variants() { return <ButtonGallery />; }
 | `vcase-annotations` | `@VCase`, `@VCaseDivergence`, `VCaseKind`, axis model (`VCaseAxis`, `VCasePointer`, `VCaseViewport`, `VCaseSizeClass`, `VCaseAxisValues`). KMP, no dependencies. |
 | `vcase-core` | JVM. Manifest model + JSON (`VCaseManifest`, `ManifestCapture`, `VCaseJson`), `ManifestValidation`, `VCaseIds`, `AxisExpansion` / `VCaseVariant`, `ManifestDiff`, `ImageCompare` / `PixelTolerance` / `RegionTolerance`, `CaptureMeta`, `GoldenStore` / `GoldenRun` / `RunSummary`, `HtmlReport`. |
 | `vcase-compose-desktop` | JVM, Compose Desktop. `VCaseScanner` (ComposablePreviewScanner `JvmAnnotationScanner` + ClassGraph), `VCaseHost`, `CaptureSize`, `LocalVCaseVariant`, `DesktopRenderer` (ImageComposeScene, renderer `desktop-skiko`), `runVCases`, `VCaseDesktopConfig`, `VCaseDesktopTest`. |
+| `packages/react` | TypeScript, npm. `@vcase/react` (`vcase()`, `readVariant`, `markReady`) and `@vcase/react/node`: manifest model and JSON byte-compatible with vcase-core, scanner, axis expansion, validation, Playwright renderer, golden run, HTML report, parity report, `vcase-react` CLI. `schema/vcase-manifest.schema.json` is the manifest's JSON schema. |
+| `samples/react` | Vite + React host page and five cases (dark-only, font scale, a screen with a divergence, parity with the Compose sample, a JavaScript animation on the fake clock), committed goldens. |
 | `samples/compose-desktop` | Seven cases (including a wide capture, a settled popup and a wide size class with both pointers), a host, the one test class, committed goldens. |
 
 ## Building
 
-JDK 17. `./gradlew check` runs everything: the unit tests, the adapter tests, and the
-sample's verify against its committed goldens. On Linux, skiko needs `libGL.so.1`,
+JDK 17. `./gradlew check` runs everything on the Kotlin side: the unit tests, the adapter
+tests, and the sample's verify against its committed goldens.
+
+Node 22 for the React side: `npm ci && npm run typecheck && npm test && npm run build` in
+`packages/react`, then `npm ci && npx vcase-react verify` in `samples/react` (needs
+`npx playwright install --with-deps chromium`; goldens only match CI's Chromium). On Linux, skiko needs `libGL.so.1`,
 `libX11.so.6` and `libfontconfig.so.1` (Ubuntu runners have them).
 
 Kotlin 2.4.21 and Compose Multiplatform 1.12.2 match the first consumer.

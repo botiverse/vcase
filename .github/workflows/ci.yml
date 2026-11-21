@@ -32,3 +32,59 @@ jobs:
           path: |
             samples/compose-desktop/build/vcase/
             */build/reports/tests/
+
+  react:
+    # The React adapter (packages/react) and its sample (samples/react). Goldens are
+    # renderer-specific (web-chromium = the Playwright Chromium pinned by packages/react's
+    # lockfile, on this runner image): record them here, never on a laptop. When verify fails,
+    # the job records into the checkout and uploads `vcase-react-goldens`; review the images,
+    # then download the artifact into samples/react and commit.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Package (install, typecheck, unit tests, build)
+        working-directory: packages/react
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Sample (install, typecheck, manifest matches the scan)
+        working-directory: samples/react
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npx vcase-react check
+      - name: Install Chromium
+        working-directory: packages/react
+        run: npx playwright install --with-deps chromium
+      - name: Verify sample goldens (zero tolerance)
+        id: verify
+        working-directory: samples/react
+        run: npx vcase-react verify
+      - name: Parity report against the Compose sample (report-only)
+        if: always() && steps.verify.outcome != 'skipped'
+        working-directory: samples/react
+        run: npx vcase-react parity
+      - name: Upload vcase report
+        if: always() && steps.verify.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcase-react-report
+          path: samples/react/build/vcase/
+      - name: Record goldens for review
+        if: failure() && steps.verify.outcome == 'failure'
+        working-directory: samples/react
+        run: npx vcase-react record --out build/vcase-record
+      - name: Upload recorded goldens
+        if: failure() && steps.verify.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcase-react-goldens
+          path: |
+            samples/react/goldens/
+            samples/react/vcase.manifest.json

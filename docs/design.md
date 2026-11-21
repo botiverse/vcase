@@ -178,14 +178,17 @@ fun ChannelMembersCase(data: MembersFixture) {
   parameters. A case with a parameter is reported as an error. The fixture name is
   available through `LocalVCaseVariant`.
 
-### React **[planned]**
+### React **[built]**
+
+Built: scanner, Playwright renderer, record / verify, report, parity page. Planned: fixtures
+(phase 2), network replay.
 
 ```tsx
 // button.cases.tsx
 export const meta = vcase({ id: "ui.button.variants", parity: ["mobile:ds.button.variants"] });
 export default function Variants() { return <ButtonGallery />; }
 
-// a page case
+// a page case (phase 2: fixtures)
 export const meta = vcase({ id: "screens.channel.members",
   fixture: "members.channel(count=24, preset=long-names)" });
 export default function Members({ data }: CaseProps<MembersFixture>) {
@@ -193,14 +196,53 @@ export default function Members({ data }: CaseProps<MembersFixture>) {
 }
 ```
 
-- The format is compatible with Storybook CSF (default export + named `meta`). Projects
-  that already have stories can scan them without rewriting.
-- The raft-design docs site's 405 examples (`*.composition.tsx`) become cases with one
-  added `meta` line. Rendering reuses the existing `/iframe/example` URL.
-- The adapter is a Playwright script. It starts a Vite host page that renders only the case,
-  opens it by id, waits for fonts and images, and captures the element. All network
-  requests are replayed from fixtures. An unknown request fails the case; it does not
-  silently 404.
+Usage is in the [README](../README.md#react). How it is built (`packages/react`, `@vcase/react`):
+
+- **One manifest format.** `vcase({...})` has the fields of `@VCase` under the same names,
+  and the scanner writes them the way `VCaseScanner.entryOf` does (axes in
+  `theme, viewport, locale, pointer, fontScale` order, font scales as strings, the "use the
+  host's" values left out of `capture`). The JSON writer reproduces `VCaseJson` byte for byte
+  (Kotlin floats as `2.0`, `EncodeDefault.NEVER` fields omitted, unknown keys rejected).
+  Evidence, run in CI: the Compose sample's manifest re-encodes byte for byte and expands to
+  exactly its golden file names; its seven cases declared with `vcase()` scan to the identical
+  manifest; both manifests validate against `packages/react/schema/vcase-manifest.schema.json`;
+  and vcase-core's `ReactManifestCompatTest` reads, validates, re-encodes and expands the React
+  sample's manifest.
+- **Static scan.** The TypeScript compiler API parses each file; `meta` must be literal. Nothing
+  is imported or run, so scanning needs no bundler and no browser. `source` is
+  `path:line` from the git root, like the Kotlin scanner's.
+- **Sources.** `*.cases.tsx` (one case per file, `export default`), any example glob
+  (raft-design's `*.composition.tsx`: a file becomes a case by adding the `meta` line), and
+  Storybook CSF (every story is a case; the id is derived from `title` and the export name
+  unless `parameters.vcase` sets one; the Storybook story id is available to the URL).
+- **Rendering by URL.** The renderer does not bundle cases. It opens a URL template per variant
+  (`{key}`, `{theme}`, `{viewport}`, ...) on a page the project serves: a small Vite host page
+  (`samples/react/src/main.tsx`), raft-design's `/iframe/example`, or Storybook's
+  `iframe.html?id={storyId}`. The host page is the React counterpart of `VCaseHost`.
+- **Freezing.** A fresh context per variant (viewport, density, locale, `prefers-color-scheme`,
+  touch, reduced motion, UTC, a fixed `Date`); fonts, images and network idle awaited;
+  transitions, animations and the caret stopped; `settleFrames` animation frames. With
+  `frameIntervalMs` the page runs on Playwright's paused fake clock and frame `i` is at
+  `i * frameIntervalMs` ms, the web reading of the Kotlin frame plan.
+- **Capture size.** A component is its `data-vcase-root` element's bounds, bounded by
+  `maxWidth` (default the viewport width; it also widens the window) and `maxHeight` (default
+  4x the viewport height), with a warning when cut. A screen is the viewport.
+- **Network.** Requests outside the page's origin and `allowedOrigins` fail the variant; they
+  never silently 404. **[planned]** Replaying them from recorded fixtures.
+- **Goldens** live in `goldens/web-chromium/` and are recorded in CI only (the `react` job
+  records and uploads them when verify fails), because Chromium's pixels depend on its build,
+  fonts and OS.
+- **raft-design** (not wired yet): each example file gets one line, hidden from the docs
+  site's code view by its strip markers,
+  `// @docs-source-strip-start` / `export const meta = vcase({ id: "ui.button.default", parity: ["mobile:ds.button.variants"] });` / `// @docs-source-strip-end`,
+  and the config points at the docs site:
+  `sources: [{ glob: "apps/doc/src/modules/**/*.composition.tsx", base: "apps/doc/src/modules", suffix: ".composition.tsx" }]`,
+  `url: "/iframe/example?path={key}&mode={theme}"`. The `/iframe/example` route needs two
+  attributes: `data-vcase-root` on a `w-fit` wrapper around `<Example />` (the capture bounds),
+  and `data-vcase-ready` on `<html>` once the lazy example has rendered.
+- **Parity** (`vcase-react parity`) pairs each variant of a case with `parity` entries with the
+  other platform's golden of the same axis name and writes a side-by-side page with a
+  whole-image hint and the declared divergences. It never fails.
 
 ### iOS (and any platform that must run the app to capture) **[planned]**
 
@@ -271,7 +313,8 @@ flow are needed, the same images can be uploaded to Argos without changing the f
 When a PR changes the UI, CI produces the new images as an artifact of the PR. The author runs
 `vcase accept --from-ci <run>` locally to pull them back and commit them. This replaces
 downloading and copying directories by hand. CJK glyphs are still rendered only in CI.
-**[planned]** In phase 1 you record locally with `-Pvcase.mode=record`.
+**[planned]** In phase 1 you record Kotlin goldens locally with `-Pvcase.mode=record`; React
+goldens come from the `vcase-react-goldens` artifact of the CI `react` job.
 
 ## Commands and CI
 
@@ -284,8 +327,9 @@ vcase report      # build the static report
 vcase accept --from-ci <run-id>   # pull CI's new goldens back
 ```
 
-Phase 1 maps these onto the JUnit entry point: `vcase.mode=scan|record|verify` and
-`vcase.filter=<globs>`. The Gradle plugin and CLI are **[planned]**.
+Phase 1 maps these onto the JUnit entry point on the Kotlin side (`vcase.mode=scan|record|verify`
+and `vcase.filter=<globs>`) and onto `vcase-react scan|check|verify|record|parity [--filter]` on
+the React side. The Gradle plugin and a shared CLI are **[planned]**.
 
 - Pull requests run only the cases the change affects (affected ids are computed from source
   file dependencies). Same-platform regression gates the merge.
@@ -298,8 +342,8 @@ Phase 1 maps these onto the JUnit entry point: `vcase.mode=scan|record|verify` a
 | project type | what to do |
 |---|---|
 | Kotlin Compose (Android or KMP) | Add the vcase Gradle plugin (phase 1: the test dependency and one `VCaseDesktopTest` class). Implement a `VCaseHost` (theme, fonts, freeze settings). Put `@VCase` on cases. |
-| React with Storybook | Install `@vcase/react` and point it at the stories directory. Optionally add `parity` to stories. |
-| React without Storybook | Write `*.cases.tsx`, or point it at any example page that opens on its own by URL. |
+| React with Storybook | Install `@vcase/react`, add a `sources` entry for the stories and `url: "/iframe.html?id={storyId}&viewMode=story&globals=theme:{theme}"` against the Storybook server. Optionally add `parameters: { vcase: vcase({ parity: [...] }) }` to stories. |
+| React without Storybook | Write `*.cases.tsx` and a host page (copy `samples/react/src/main.tsx`), or point `url` at any example page that opens on its own by URL and add the `meta` line to its example files. |
 | Data | If you have zod or JSON Schema, use it directly. Otherwise write fixture functions by hand; the generator API is the same. |
 
 ## Migrating Raft
