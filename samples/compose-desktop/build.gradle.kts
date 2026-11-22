@@ -37,4 +37,6 @@ tasks.test {
     systemProperty("vcase.out", layout.buildDirectory.dir("vcase").get().asFile.absolutePath)
     systemProperty("vcase.sourceRoot", "samples/compose-desktop/src/main/kotlin")
     systemProperty("java.awt.headless", "true")
+    // One line per case in the log.
+    testLogging { events("passed", "failed") }
 }

@@ -149,6 +149,9 @@ class MyVCases : VCaseDesktopTest() {
 }
 ```
 
+JUnit reports one test per case, named by the case id, and a last `manifestAndGoldens` test for
+the manifest and orphan goldens.
+
 Wire the `vcase.*` system properties in the module that runs the test (see
 `samples/compose-desktop/build.gradle.kts`):
 
