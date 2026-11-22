@@ -11,6 +11,7 @@ import dev.vcase.core.RunSummary
 import dev.vcase.core.VCaseJson
 import dev.vcase.core.VCaseManifest
 import dev.vcase.core.VCaseMode
+import dev.vcase.core.VariantResult
 import java.io.File
 
 /**
@@ -97,38 +98,61 @@ public fun runVCases(
     host: VCaseHost,
     config: VCaseDesktopConfig,
 ): VCaseRunResult {
-    val scanned = VCaseScanner.scan(config.packages, config.sourceRoot)
-    val manifest = VCaseScanner.manifest(host.project, host.defaults, scanned)
-    ManifestValidation.requireValid(manifest)
+    val session = VCaseSession(host, config)
+    session.cases.forEach { session.run(it) }
+    return session.finish()
+}
 
-    var diff: ManifestDiff? = null
-    config.manifestFile?.let { file ->
-        if (config.mode == VCaseMode.Record) {
-            VCaseJson.write(manifest, file)
-        } else {
-            diff =
-                if (file.isFile) {
+/** One [runVCases], step by step: the manifest when created, then [run] per case, then [finish]. */
+internal class VCaseSession(
+    private val host: VCaseHost,
+    private val config: VCaseDesktopConfig,
+) {
+    private val scanned = VCaseScanner.scan(config.packages, config.sourceRoot)
+    private val manifest = VCaseScanner.manifest(host.project, host.defaults, scanned)
+    private val manifestDiff: ManifestDiff?
+    private val golden = GoldenRun(GoldenStore(config.goldensDir, host.renderer), config.outputDir, config.mode, config.tolerance)
+    private val ran = mutableSetOf<String>()
+
+    /** The cases to render: none for a scan-only run. */
+    val cases: List<ScannedCase> = if (config.scanOnly) emptyList() else scanned.filter { config.matches(it.entry.id) }
+
+    init {
+        ManifestValidation.requireValid(manifest)
+        manifestDiff =
+            config.manifestFile?.let { file ->
+                if (config.mode == VCaseMode.Record) {
+                    VCaseJson.write(manifest, file)
+                    null
+                } else if (file.isFile) {
                     ManifestDiff.between(VCaseJson.read(file), manifest)
                 } else {
                     ManifestDiff(manifest.cases.map { it.id }, emptyList(), emptyMap(), listOf("missing ${file.path}"))
                 }
-        }
+            }
     }
-    if (config.scanOnly) return VCaseRunResult(manifest, diff, null)
 
-    val run = GoldenRun(GoldenStore(config.goldensDir, host.renderer), config.outputDir, config.mode, config.tolerance)
-    for (case in scanned) {
-        if (!config.matches(case.entry.id)) continue
-        for (variant in AxisExpansion.expand(case.entry, manifest.defaults)) {
+    /** Renders every variant of [case] and records or verifies it. */
+    fun run(case: ScannedCase): List<VariantResult> {
+        val results = AxisExpansion.expand(case.entry, manifest.defaults).map { variant ->
+            val problem = case.problem
             val outcome =
                 when {
                     case.entry.needsDevice -> CaptureOutcome.Skipped("needsDevice: not rendered on ${host.renderer}")
-                    case.problem != null -> CaptureOutcome.Error(case.problem)
+                    problem != null -> CaptureOutcome.Error(problem)
                     else -> DesktopRenderer.render(host, variant) { case.Content() }
                 }
-            run.accept(variant, outcome)
+            golden.accept(variant, outcome)
         }
+        // Only now: a case that threw leaves the run incomplete, so its goldens are not orphans.
+        ran += case.entry.id
+        return results
     }
-    val summary = run.finish(complete = config.filter.isEmpty(), title = "vcase ${host.project} (${host.renderer})")
-    return VCaseRunResult(manifest, diff, summary)
+
+    /** Writes the report and, when every case ran, checks for orphan goldens (record mode deletes them). */
+    fun finish(): VCaseRunResult {
+        if (config.scanOnly) return VCaseRunResult(manifest, manifestDiff, null)
+        val complete = scanned.all { it.entry.id in ran }
+        return VCaseRunResult(manifest, manifestDiff, golden.finish(complete, title = "vcase ${host.project} (${host.renderer})"))
+    }
 }
